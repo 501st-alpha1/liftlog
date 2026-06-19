@@ -5,6 +5,7 @@ import '../repositories/workout_repository.dart';
 import '../utils/formatters.dart';
 import '../utils/theme.dart';
 import 'log_workout_screen.dart';
+import 'session_detail_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -76,8 +77,16 @@ class _HomeScreenState extends State<HomeScreen> {
                             separatorBuilder: (_, __) =>
                                 const SizedBox(height: 8),
                             itemBuilder: (_, i) =>
-                                _SessionCard(session: _sessions[i], onTap: () {
-                                  // TODO: session detail screen
+                                _SessionCard(session: _sessions[i], onTap: () async {
+                                  final deleted = await Navigator.push<bool>(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (_) => SessionDetailScreen(
+                                        session: _sessions[i],
+                                      ),
+                                    ),
+                                  );
+                                  if (deleted == true) _load();
                                 }),
                           ),
                         ),
