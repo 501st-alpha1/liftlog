@@ -267,6 +267,17 @@ class _LogWorkoutScreenState extends State<LogWorkoutScreen> {
                         historyFuture: _getHistory(entry.exerciseId),
                         onAddSet: () => _addSet(i),
                         onEditSet: (si) => _editSet(i, si),
+                        onNotesChanged: (notes) async {
+                          final entries = [..._session.exercises];
+                          entries[i] = entry.copyWith(
+                            notes: notes,
+                            clearNotes: notes == null,
+                          );
+                          setState(() {
+                            _session = _session.copyWith(exercises: entries);
+                          });
+                          await WorkoutRepository.instance.saveSession(_session);
+                        },
                       );
                     },
                   ),
@@ -333,6 +344,7 @@ class _ExerciseCard extends StatelessWidget {
   final Future<ExerciseHistory> historyFuture;
   final VoidCallback onAddSet;
   final ValueChanged<int> onEditSet;
+  final ValueChanged<String?> onNotesChanged;
 
   const _ExerciseCard({
     required this.entry,
@@ -340,11 +352,54 @@ class _ExerciseCard extends StatelessWidget {
     required this.historyFuture,
     required this.onAddSet,
     required this.onEditSet,
+    required this.onNotesChanged,
   });
+
+  Future<void> _editNotes(BuildContext context) async {
+    final ctrl = TextEditingController(text: entry.notes ?? '');
+    final result = await showDialog<String?>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: kSurface,
+        title: Text(exercise?.name ?? entry.exerciseId,
+            style: Theme.of(ctx).textTheme.titleMedium),
+        content: TextField(
+          controller: ctrl,
+          autofocus: true,
+          maxLines: 3,
+          textCapitalization: TextCapitalization.sentences,
+          decoration: const InputDecoration(
+            hintText: 'Form cues, RPE, how it felt…',
+          ),
+        ),
+        actions: [
+          if (entry.notes != null)
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, ''),
+              style: TextButton.styleFrom(foregroundColor: kDestructive),
+              child: const Text('Clear'),
+            ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, null),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, ctrl.text.trim()),
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+    ctrl.dispose();
+    if (result == null) return; // cancelled
+    onNotesChanged(result.isEmpty ? null : result);
+  }
 
   @override
   Widget build(BuildContext context) {
     final name = exercise?.name ?? entry.exerciseId;
+    final hasNotes = entry.notes != null && entry.notes!.isNotEmpty;
+
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: Card(
@@ -353,8 +408,44 @@ class _ExerciseCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Exercise name + history hint
-              Text(name, style: Theme.of(context).textTheme.titleMedium),
+              // Exercise name + notes button
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Text(name,
+                        style: Theme.of(context).textTheme.titleMedium),
+                  ),
+                  GestureDetector(
+                    onTap: () => _editNotes(context),
+                    child: Padding(
+                      padding: const EdgeInsets.only(left: 8),
+                      child: Icon(
+                        hasNotes ? Icons.notes : Icons.add_comment_outlined,
+                        size: 18,
+                        color: hasNotes ? kAccent : kOnSurfaceDim,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+
+              // Exercise notes (if set)
+              if (hasNotes) ...[
+                const SizedBox(height: 4),
+                GestureDetector(
+                  onTap: () => _editNotes(context),
+                  child: Text(
+                    entry.notes!,
+                    style: Theme.of(context).textTheme.bodySmall!.copyWith(
+                          fontStyle: FontStyle.italic,
+                          color: kOnSurfaceDim,
+                        ),
+                  ),
+                ),
+              ],
+
+              // History hint
               const SizedBox(height: 4),
               FutureBuilder<ExerciseHistory>(
                 future: historyFuture,
