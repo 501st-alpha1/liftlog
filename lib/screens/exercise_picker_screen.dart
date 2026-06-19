@@ -98,10 +98,23 @@ class _ExercisePickerScreenState extends State<ExercisePickerScreen> {
   }
 
   Future<void> _showAddExerciseSheet(BuildContext context) async {
-    // TODO: add exercise form
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Add exercise coming soon')),
+    final exercise = await showModalBottomSheet<Exercise>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: kSurface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (_) => const _AddExerciseSheet(),
     );
+    if (exercise == null) return;
+    await WorkoutRepository.instance.addExercise(exercise);
+    await _load();
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('${exercise.name} added')),
+      );
+    }
   }
 }
 
@@ -320,5 +333,193 @@ class _EmptySearch extends StatelessWidget {
         ],
       ),
     );
+  }
+}
+
+// ── Add Exercise Sheet ────────────────────────────────────────────────────────
+
+class _AddExerciseSheet extends StatefulWidget {
+  const _AddExerciseSheet();
+
+  @override
+  State<_AddExerciseSheet> createState() => _AddExerciseSheetState();
+}
+
+class _AddExerciseSheetState extends State<_AddExerciseSheet> {
+  final _nameCtrl = TextEditingController();
+  final _equipmentCtrl = TextEditingController();
+  final _restCtrl = TextEditingController(text: '120');
+
+  MuscleCategory _category = MuscleCategory.push;
+  ExerciseType _type = ExerciseType.weighted;
+
+  @override
+  void dispose() {
+    _nameCtrl.dispose();
+    _equipmentCtrl.dispose();
+    _restCtrl.dispose();
+    super.dispose();
+  }
+
+  String _generateId(String name) {
+    return name
+        .trim()
+        .toLowerCase()
+        .replaceAll(RegExp(r'[^a-z0-9\s]'), '')
+        .trim()
+        .replaceAll(RegExp(r'\s+'), '_');
+  }
+
+  void _submit() {
+    final name = _nameCtrl.text.trim();
+    if (name.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please enter an exercise name')),
+      );
+      return;
+    }
+    final id = _generateId(name);
+    final rest = int.tryParse(_restCtrl.text.trim()) ?? 120;
+    final equipment = _equipmentCtrl.text.trim();
+
+    final exercise = Exercise(
+      id: id,
+      name: name,
+      category: _category,
+      type: _type,
+      equipment: equipment.isEmpty ? null : equipment,
+      defaultRestSeconds: rest,
+    );
+    Navigator.pop(context, exercise);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.of(context).viewInsets.bottom,
+      ),
+      child: SingleChildScrollView(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 20, 16, 32),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('New Exercise',
+                  style: Theme.of(context).textTheme.titleLarge),
+              const SizedBox(height: 20),
+
+              // Name
+              const _Label('Exercise Name'),
+              const SizedBox(height: 6),
+              TextField(
+                controller: _nameCtrl,
+                autofocus: true,
+                textCapitalization: TextCapitalization.words,
+                decoration: const InputDecoration(
+                  hintText: 'e.g. Incline Dumbbell Press',
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              // Category
+              const _Label('Muscle Group'),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: MuscleCategory.values.map((cat) {
+                  final selected = _category == cat;
+                  return ChoiceChip(
+                    label: Text(titleCase(cat.name)),
+                    selected: selected,
+                    onSelected: (_) => setState(() => _category = cat),
+                  );
+                }).toList(),
+              ),
+              const SizedBox(height: 16),
+
+              // Type
+              const _Label('Exercise Type'),
+              const SizedBox(height: 8),
+              ..._typeOptions.map((opt) => RadioListTile<ExerciseType>(
+                    value: opt.$1,
+                    groupValue: _type,
+                    onChanged: (v) => setState(() => _type = v!),
+                    title: Text(opt.$2,
+                        style: Theme.of(context).textTheme.bodyMedium),
+                    subtitle: Text(opt.$3,
+                        style: Theme.of(context).textTheme.bodySmall),
+                    activeColor: kAccent,
+                    contentPadding: EdgeInsets.zero,
+                    dense: true,
+                  )),
+              const SizedBox(height: 16),
+
+              // Equipment
+              const _Label('Equipment (optional)'),
+              const SizedBox(height: 6),
+              TextField(
+                controller: _equipmentCtrl,
+                textCapitalization: TextCapitalization.none,
+                decoration: const InputDecoration(
+                  hintText: 'e.g. barbell, dumbbell, cable…',
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              // Default rest
+              const _Label('Default Rest (seconds)'),
+              const SizedBox(height: 6),
+              TextField(
+                controller: _restCtrl,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(hintText: '120'),
+              ),
+              const SizedBox(height: 24),
+
+              ElevatedButton(
+                onPressed: _submit,
+                child: const Text('Add Exercise'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+const _typeOptions = [
+  (
+    ExerciseType.weighted,
+    'Weighted',
+    'Tracks weight (lbs) + reps — barbell, dumbbell, machine',
+  ),
+  (
+    ExerciseType.bodweightPlus,
+    'Bodyweight + Added Weight',
+    'Tracks added weight + reps — dips, pull-ups with belt',
+  ),
+  (
+    ExerciseType.bodyweight,
+    'Bodyweight',
+    'Tracks reps only — push-ups, planks',
+  ),
+  (
+    ExerciseType.cardio,
+    'Cardio',
+    'Tracks duration and/or distance — running, rowing',
+  ),
+];
+
+class _Label extends StatelessWidget {
+  final String text;
+  const _Label(this.text);
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(text, style: Theme.of(context).textTheme.labelLarge);
   }
 }
