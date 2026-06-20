@@ -43,7 +43,7 @@ class ExerciseHistory {
     return best;
   }
 
-  /// All-time best set by added weight (for bodyweight_plus exercises)
+  /// All-time best set by added weight (positive = added, negative = assisted)
   WorkoutSet? get bestAddedWeightSet {
     WorkoutSet? best;
     for (final occ in occurrences) {

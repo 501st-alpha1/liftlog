@@ -329,8 +329,9 @@ class _ExerciseDetailCard extends StatelessWidget {
               // Set rows
               ...entry.sets.map((set) => _SetTableRow(set: set, type: type)),
 
-              // Per-exercise summary for weighted
-              if (type == ExerciseType.weighted || type == ExerciseType.bodweightPlus) ...[
+              // Per-exercise summary for weighted/bodyweight
+              if (type == ExerciseType.weighted ||
+                  type == ExerciseType.bodyweight) ...[
                 const Divider(height: 16),
                 _ExerciseSummaryRow(sets: entry.sets, type: type),
               ],
@@ -360,7 +361,7 @@ class _SetTableHeader extends StatelessWidget {
         const SizedBox(width: 8),
         if (type == ExerciseType.weighted)
           Expanded(child: Text('WEIGHT', style: style)),
-        if (type == ExerciseType.bodweightPlus)
+        if (type == ExerciseType.bodyweight)
           Expanded(child: Text('ADDED', style: style)),
         if (type != ExerciseType.cardio)
           SizedBox(width: 56, child: Text('REPS', style: style, textAlign: TextAlign.right)),
@@ -408,14 +409,14 @@ class _SetTableRow extends StatelessWidget {
                 style: style,
               ),
             ),
-          if (type == ExerciseType.bodweightPlus)
+          if (type == ExerciseType.bodyweight)
             Expanded(
               child: Text(
-                set.addedWeightLbs != null
+                set.addedWeightLbs != null && set.addedWeightLbs != 0
                     ? (set.addedWeightLbs! > 0
                         ? '+${formatWeight(set.addedWeightLbs)}'
-                        : 'BW')
-                    : '—',
+                        : '-${formatWeight(set.addedWeightLbs!.abs())} (assist)')
+                    : 'BW',
                 style: style,
               ),
             ),
@@ -487,7 +488,7 @@ class _ExerciseSummaryRow extends StatelessWidget {
           '${sets.length} sets · $totalReps reps',
           style: Theme.of(context).textTheme.bodySmall,
         ),
-        if (volume > 0) ...[
+        if (volume != 0) ...[
           Text(' · ', style: Theme.of(context).textTheme.bodySmall),
           Text(
             '${volume.round()} lbs volume',
@@ -505,7 +506,6 @@ class _TypeBadge extends StatelessWidget {
 
   String get _label => switch (type) {
         ExerciseType.weighted => 'weighted',
-        ExerciseType.bodweightPlus => 'BW+',
         ExerciseType.bodyweight => 'BW',
         ExerciseType.cardio => 'cardio',
       };

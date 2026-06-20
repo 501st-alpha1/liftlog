@@ -463,6 +463,17 @@ class _ExerciseCard extends StatelessWidget {
                   if (exercise?.type == ExerciseType.weighted) {
                     final pr = hist.bestWeightSet;
                     if (pr != null) parts.add('PR ${formatWeight(pr.weightLbs)}');
+                  } else if (exercise?.type == ExerciseType.bodyweight) {
+                    final addedPr = hist.bestAddedWeightSet;
+                    if (addedPr != null && (addedPr.addedWeightLbs ?? 0) != 0) {
+                      final w = addedPr.addedWeightLbs!;
+                      parts.add(w > 0
+                          ? 'PR +${formatWeight(w)}'
+                          : 'Best assist ${formatWeight(w)}');
+                    } else {
+                      final repPr = hist.bestRepSet;
+                      if (repPr != null) parts.add('PR ${repPr.reps} reps');
+                    }
                   }
                   return Text(
                     parts.join('   ·   '),
@@ -616,7 +627,7 @@ class _SetEditorSheetState extends State<_SetEditorSheet> {
     return WorkoutSet(
       setNumber: widget.set.setNumber,
       weightLbs: type == ExerciseType.weighted ? weight : null,
-      addedWeightLbs: type == ExerciseType.bodweightPlus ? weight : null,
+      addedWeightLbs: type == ExerciseType.bodyweight ? weight : null,
       reps: (type != ExerciseType.cardio) ? reps : null,
       durationSeconds: duration,
       distanceMeters: distance,
@@ -634,7 +645,6 @@ class _SetEditorSheetState extends State<_SetEditorSheet> {
   Widget build(BuildContext context) {
     final type = widget.exercise?.type ?? ExerciseType.weighted;
     final isCardio = type == ExerciseType.cardio;
-    final isBodyweightPlus = type == ExerciseType.bodweightPlus;
     final isBodyweight = type == ExerciseType.bodyweight;
 
     return Padding(
@@ -712,6 +722,19 @@ class _SetEditorSheetState extends State<_SetEditorSheet> {
                                   .copyWith(color: kAccent),
                             ),
                           ],
+                          if (type == ExerciseType.bodyweight &&
+                              h.bestAddedWeightSet != null &&
+                              (h.bestAddedWeightSet!.addedWeightLbs ?? 0) !=
+                                  0) ...[
+                            const SizedBox(height: 6),
+                            Text(
+                              'PR: ${h.bestAddedWeightSet!.summary}',
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .bodySmall!
+                                  .copyWith(color: kAccent),
+                            ),
+                          ],
                         ],
                       ),
                     ),
@@ -721,18 +744,19 @@ class _SetEditorSheetState extends State<_SetEditorSheet> {
 
               const SizedBox(height: 8),
 
-              // Weight field (weighted + bodyweight_plus)
-              if (!isBodyweight && !isCardio) ...[
+              // Weight field (weighted: plain weight; bodyweight: ± added/assist)
+              if (!isCardio) ...[
                 _FieldLabel(
-                  isBodyweightPlus
-                      ? 'Added Weight (lbs, 0 = bodyweight)'
+                  isBodyweight
+                      ? 'Added Weight (lbs) — 0 = bodyweight, negative = assisted'
                       : 'Weight (lbs)',
                 ),
                 const SizedBox(height: 6),
                 _NumField(
                   controller: _weightCtrl,
-                  hintText: '135',
+                  hintText: isBodyweight ? '0' : '135',
                   decimal: true,
+                  signed: isBodyweight,
                 ),
                 const SizedBox(height: 14),
               ],
@@ -806,21 +830,28 @@ class _NumField extends StatelessWidget {
   final TextEditingController controller;
   final String hintText;
   final bool decimal;
+  final bool signed;
 
   const _NumField({
     required this.controller,
     required this.hintText,
     this.decimal = false,
+    this.signed = false,
   });
 
   @override
   Widget build(BuildContext context) {
     return TextField(
       controller: controller,
-      keyboardType: TextInputType.numberWithOptions(decimal: decimal),
+      keyboardType: TextInputType.numberWithOptions(
+        decimal: decimal,
+        signed: signed,
+      ),
       inputFormatters: [
         FilteringTextInputFormatter.allow(
-          decimal ? RegExp(r'^\d*\.?\d*') : RegExp(r'^\d*'),
+          signed
+              ? (decimal ? RegExp(r'[\d.\-]') : RegExp(r'[\d\-]'))
+              : (decimal ? RegExp(r'[\d.]') : RegExp(r'[\d]')),
         ),
       ],
       decoration: InputDecoration(hintText: hintText),

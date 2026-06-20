@@ -250,10 +250,16 @@ class _HistoryLine extends StatelessWidget {
         final pr = history.bestWeightSet;
         if (pr != null) parts.add('PR: ${formatWeight(pr.weightLbs)}');
         break;
-      case ExerciseType.bodweightPlus:
-        final pr = history.bestAddedWeightSet;
-        if (pr != null && (pr.addedWeightLbs ?? 0) > 0) {
-          parts.add('PR: +${formatWeight(pr.addedWeightLbs)}');
+      case ExerciseType.bodyweight:
+        final addedPr = history.bestAddedWeightSet;
+        if (addedPr != null && (addedPr.addedWeightLbs ?? 0) != 0) {
+          final w = addedPr.addedWeightLbs!;
+          parts.add(w > 0
+              ? 'PR: +${formatWeight(w)}'
+              : 'Best assist: ${formatWeight(w)}');
+        } else {
+          final repPr = history.bestRepSet;
+          if (repPr != null) parts.add('PR: ${repPr.reps} reps');
         }
         break;
       case ExerciseType.cardio:
@@ -262,10 +268,6 @@ class _HistoryLine extends StatelessWidget {
           final km = (best.distanceMeters ?? 0) / 1000;
           parts.add('Best: ${km.toStringAsFixed(2)} km');
         }
-        break;
-      case ExerciseType.bodyweight:
-        final pr = history.bestRepSet;
-        if (pr != null) parts.add('PR: ${pr.reps} reps');
         break;
     }
 
@@ -498,14 +500,9 @@ const _typeOptions = [
     'Tracks weight (lbs) + reps — barbell, dumbbell, machine',
   ),
   (
-    ExerciseType.bodweightPlus,
-    'Bodyweight + Added Weight',
-    'Tracks added weight + reps — dips, pull-ups with belt',
-  ),
-  (
     ExerciseType.bodyweight,
     'Bodyweight',
-    'Tracks reps only — push-ups, planks',
+    'Tracks reps, optionally ± weight — push-ups, weighted dips, assisted pull-ups',
   ),
   (
     ExerciseType.cardio,

@@ -84,6 +84,11 @@ class WorkoutSet {
             ? addedWeightLbs!.toInt().toString()
             : addedWeightLbs!.toStringAsFixed(1);
         parts.add('+${w}lbs × $reps');
+      } else if (addedWeightLbs! < 0) {
+        final w = addedWeightLbs!.abs() % 1 == 0
+            ? addedWeightLbs!.abs().toInt().toString()
+            : addedWeightLbs!.abs().toStringAsFixed(1);
+        parts.add('-${w}lbs (assist) × $reps');
       } else {
         parts.add('BW × $reps');
       }

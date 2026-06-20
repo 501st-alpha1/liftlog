@@ -6,10 +6,10 @@ enum ExerciseType {
   /// Barbell, dumbbell, machine: tracks weight_lbs + reps
   weighted,
 
-  /// Bodyweight + optional added weight: tracks added_weight_lbs + reps
-  bodweightPlus,
-
-  /// Pure bodyweight: tracks reps only
+  /// Bodyweight, optionally + added weight or - assistance: tracks
+  /// added_weight_lbs + reps. added_weight_lbs defaults to 0 (pure
+  /// bodyweight); positive = added weight (weighted dip belt, etc.);
+  /// negative = assistance (assisted pull-up/dip machine).
   bodyweight,
 
   /// Runs, rows, bike: tracks duration_seconds and/or distance_meters
