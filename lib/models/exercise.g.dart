@@ -38,7 +38,6 @@ const _$MuscleCategoryEnumMap = {
 
 const _$ExerciseTypeEnumMap = {
   ExerciseType.weighted: 'weighted',
-  ExerciseType.bodweightPlus: 'bodweightPlus',
   ExerciseType.bodyweight: 'bodyweight',
   ExerciseType.cardio: 'cardio',
 };
