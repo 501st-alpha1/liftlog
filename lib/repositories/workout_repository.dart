@@ -36,6 +36,30 @@ class WorkoutRepository {
   Future<String> get _exercisesPath async =>
       p.join(await rootPath, 'exercises.json');
 
+  /// Map of legacy/renamed field values to their current equivalents, keyed
+  /// by field name. Applied to raw exercise JSON before parsing so old data
+  /// files self-heal on next load rather than silently dropping entries.
+  static const Map<String, Map<String, String>> _legacyFieldValueMigrations = {
+    'type': {
+      'bodweightPlus': 'bodyweight', // pre-merge enum split, removed 2026-06
+    },
+  };
+
+  /// Rewrites known legacy field values in a raw exercise JSON map in place.
+  /// Returns true if any change was made.
+  bool _migrateExerciseJson(Map<String, dynamic> raw) {
+    var changed = false;
+    for (final entry in _legacyFieldValueMigrations.entries) {
+      final field = entry.key;
+      final current = raw[field];
+      if (current is String && entry.value.containsKey(current)) {
+        raw[field] = entry.value[current];
+        changed = true;
+      }
+    }
+    return changed;
+  }
+
   Future<ExerciseLibrary> loadExerciseLibrary() async {
     final path = await _exercisesPath;
     final file = File(path);
@@ -45,7 +69,34 @@ class WorkoutRepository {
       return library;
     }
     final json = jsonDecode(await file.readAsString()) as Map<String, dynamic>;
-    return ExerciseLibrary.fromJson(json);
+    final version = json['version'] as int? ?? 1;
+    final rawExercises = json['exercises'] as List<dynamic>? ?? [];
+
+    final exercises = <Exercise>[];
+    var migrated = false;
+    for (final raw in rawExercises) {
+      final map = raw as Map<String, dynamic>;
+      if (_migrateExerciseJson(map)) migrated = true;
+      try {
+        exercises.add(Exercise.fromJson(map));
+      } catch (e) {
+        // Skip entries that are still unparseable after migration (e.g. a
+        // genuinely unrecognized field) rather than failing the whole
+        // library load. Surface in debug builds only.
+        assert(() {
+          // ignore: avoid_print
+          print('Skipping unparseable exercise entry: $map ($e)');
+          return true;
+        }());
+      }
+    }
+
+    final library = ExerciseLibrary(version: version, exercises: exercises);
+    if (migrated) {
+      // Persist the migrated data so this only has to happen once.
+      await _writeJson(path, library.toJson());
+    }
+    return library;
   }
 
   Future<void> saveExerciseLibrary(ExerciseLibrary library) async {

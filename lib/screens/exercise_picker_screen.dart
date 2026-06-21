@@ -18,6 +18,7 @@ class _ExercisePickerScreenState extends State<ExercisePickerScreen> {
   MuscleCategory? _filterCategory;
   String _search = '';
   bool _loading = true;
+  Object? _loadError;
 
   @override
   void initState() {
@@ -26,12 +27,24 @@ class _ExercisePickerScreenState extends State<ExercisePickerScreen> {
   }
 
   Future<void> _load() async {
-    final library = await WorkoutRepository.instance.loadExerciseLibrary();
-    if (!mounted) return;
     setState(() {
-      _exercises = library.exercises;
-      _loading = false;
+      _loading = true;
+      _loadError = null;
     });
+    try {
+      final library = await WorkoutRepository.instance.loadExerciseLibrary();
+      if (!mounted) return;
+      setState(() {
+        _exercises = library.exercises;
+        _loading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _loadError = e;
+        _loading = false;
+      });
+    }
   }
 
   Future<ExerciseHistory> _getHistory(String exerciseId) async {
@@ -78,19 +91,21 @@ class _ExercisePickerScreenState extends State<ExercisePickerScreen> {
           Expanded(
             child: _loading
                 ? const Center(child: CircularProgressIndicator())
-                : _filtered.isEmpty
-                    ? const _EmptySearch()
-                    : ListView.builder(
-                        itemCount: _filtered.length,
-                        itemBuilder: (_, i) {
-                          final ex = _filtered[i];
-                          return _ExerciseRow(
-                            exercise: ex,
-                            historyFuture: _getHistory(ex.id),
-                            onTap: () => Navigator.pop(context, ex),
-                          );
-                        },
-                      ),
+                : _loadError != null
+                    ? _LoadErrorState(error: _loadError!, onRetry: _load)
+                    : _filtered.isEmpty
+                        ? const _EmptySearch()
+                        : ListView.builder(
+                            itemCount: _filtered.length,
+                            itemBuilder: (_, i) {
+                              final ex = _filtered[i];
+                              return _ExerciseRow(
+                                exercise: ex,
+                                historyFuture: _getHistory(ex.id),
+                                onTap: () => Navigator.pop(context, ex),
+                              );
+                            },
+                          ),
           ),
         ],
       ),
@@ -310,6 +325,46 @@ class _CategoryBadge extends StatelessWidget {
           fontSize: 10,
           fontWeight: FontWeight.w700,
           letterSpacing: 0.5,
+        ),
+      ),
+    );
+  }
+}
+
+class _LoadErrorState extends StatelessWidget {
+  final Object error;
+  final VoidCallback onRetry;
+  const _LoadErrorState({required this.error, required this.onRetry});
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.error_outline, size: 44, color: kDestructive),
+            const SizedBox(height: 16),
+            Text(
+              "Couldn't load exercise library",
+              style: Theme.of(context).textTheme.titleMedium,
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              error.toString(),
+              style: Theme.of(context).textTheme.bodySmall,
+              textAlign: TextAlign.center,
+              maxLines: 6,
+              overflow: TextOverflow.ellipsis,
+            ),
+            const SizedBox(height: 20),
+            ElevatedButton(
+              onPressed: onRetry,
+              child: const Text('Retry'),
+            ),
+          ],
         ),
       ),
     );
