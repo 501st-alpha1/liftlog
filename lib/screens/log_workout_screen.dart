@@ -356,41 +356,14 @@ class _ExerciseCard extends StatelessWidget {
   });
 
   Future<void> _editNotes(BuildContext context) async {
-    final ctrl = TextEditingController(text: entry.notes ?? '');
     final result = await showDialog<String?>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: kSurface,
-        title: Text(exercise?.name ?? entry.exerciseId,
-            style: Theme.of(ctx).textTheme.titleMedium),
-        content: TextField(
-          controller: ctrl,
-          autofocus: true,
-          maxLines: 3,
-          textCapitalization: TextCapitalization.sentences,
-          decoration: const InputDecoration(
-            hintText: 'Form cues, RPE, how it felt…',
-          ),
-        ),
-        actions: [
-          if (entry.notes != null)
-            TextButton(
-              onPressed: () => Navigator.pop(ctx, ''),
-              style: TextButton.styleFrom(foregroundColor: kDestructive),
-              child: const Text('Clear'),
-            ),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, null),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(ctx, ctrl.text.trim()),
-            child: const Text('Save'),
-          ),
-        ],
+      builder: (ctx) => _NotesDialog(
+        title: exercise?.name ?? entry.exerciseId,
+        initialText: entry.notes ?? '',
+        showClear: entry.notes != null,
       ),
     );
-    ctrl.dispose();
     if (result == null) return; // cancelled
     onNotesChanged(result.isEmpty ? null : result);
   }
@@ -517,6 +490,76 @@ class _ExerciseCard extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+// ── Notes Dialog ──────────────────────────────────────────────────────────────
+// A proper StatefulWidget so the TextEditingController's lifecycle is owned
+// by the dialog's own Element tree and disposed via the framework, rather
+// than being created/disposed externally around showDialog(). Disposing a
+// controller manually right after the route pops can race with the
+// TextField's own teardown and trigger a "_dependents.isEmpty" assertion.
+class _NotesDialog extends StatefulWidget {
+  final String title;
+  final String initialText;
+  final bool showClear;
+
+  const _NotesDialog({
+    required this.title,
+    required this.initialText,
+    required this.showClear,
+  });
+
+  @override
+  State<_NotesDialog> createState() => _NotesDialogState();
+}
+
+class _NotesDialogState extends State<_NotesDialog> {
+  late final TextEditingController _ctrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = TextEditingController(text: widget.initialText);
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      backgroundColor: kSurface,
+      title: Text(widget.title, style: Theme.of(context).textTheme.titleMedium),
+      content: TextField(
+        controller: _ctrl,
+        autofocus: true,
+        maxLines: 3,
+        textCapitalization: TextCapitalization.sentences,
+        decoration: const InputDecoration(
+          hintText: 'Form cues, RPE, how it felt…',
+        ),
+      ),
+      actions: [
+        if (widget.showClear)
+          TextButton(
+            onPressed: () => Navigator.pop(context, ''),
+            style: TextButton.styleFrom(foregroundColor: kDestructive),
+            child: const Text('Clear'),
+          ),
+        TextButton(
+          onPressed: () => Navigator.pop(context, null),
+          child: const Text('Cancel'),
+        ),
+        ElevatedButton(
+          onPressed: () => Navigator.pop(context, _ctrl.text.trim()),
+          child: const Text('Save'),
+        ),
+      ],
     );
   }
 }
