@@ -16,6 +16,7 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   List<WorkoutSession> _sessions = [];
+  WorkoutSession? _resumableSession;
   bool _loading = true;
 
   @override
@@ -27,8 +28,23 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _load() async {
     final sessions = await WorkoutRepository.instance.loadAllSessions();
     if (!mounted) return;
+
+    final today = todayIso();
+    // Resumable = today's session, not yet finished (no endedAt).
+    // Sessions are sorted oldest -> newest from the repository, so the last
+    // match for today is the most recent one.
+    WorkoutSession? resumable;
+    for (final s in sessions) {
+      if (s.date == today && s.endedAt == null) {
+        resumable = s;
+      }
+    }
+
+    final rest = sessions.where((s) => s.id != resumable?.id).toList();
+
     setState(() {
-      _sessions = sessions.reversed.toList(); // newest first
+      _resumableSession = resumable;
+      _sessions = rest.reversed.toList(); // newest first
       _loading = false;
     });
   }
@@ -36,7 +52,6 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _startWorkout() async {
     final split = await _pickSplit(context);
     if (split == null || !mounted) return;
-    final now = DateTime.now();
     final date = todayIso();
     final id = '${date}_$split';
     final session = WorkoutSession(
@@ -46,6 +61,20 @@ class _HomeScreenState extends State<HomeScreen> {
       startedAt: nowIso(),
       exercises: const [],
     );
+    // Persist immediately so the session survives a crash even before the
+    // first exercise/set is added.
+    await WorkoutRepository.instance.saveSession(session);
+    if (!mounted) return;
+    await _openWorkout(session);
+  }
+
+  Future<void> _resumeWorkout() async {
+    final session = _resumableSession;
+    if (session == null) return;
+    await _openWorkout(session);
+  }
+
+  Future<void> _openWorkout(WorkoutSession session) async {
     await Navigator.push(
       context,
       MaterialPageRoute(
@@ -63,6 +92,14 @@ class _HomeScreenState extends State<HomeScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _Header(onStart: _startWorkout),
+            if (_resumableSession != null)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                child: _ResumeBanner(
+                  session: _resumableSession!,
+                  onTap: _resumeWorkout,
+                ),
+              ),
             const SizedBox(height: 8),
             Expanded(
               child: _loading
@@ -139,6 +176,63 @@ class _Header extends StatelessWidget {
             style: Theme.of(context).textTheme.labelLarge,
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _ResumeBanner extends StatelessWidget {
+  final WorkoutSession session;
+  final VoidCallback onTap;
+  const _ResumeBanner({required this.session, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final exerciseCount = session.exercises.length;
+    final setCount =
+        session.exercises.fold<int>(0, (sum, e) => sum + e.sets.length);
+
+    return Material(
+      color: kAccentDim.withOpacity(0.18),
+      borderRadius: BorderRadius.circular(12),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: kAccent.withOpacity(0.5), width: 1),
+          ),
+          child: Row(
+            children: [
+              const Icon(Icons.play_circle_fill, color: kAccent, size: 28),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Resume ${titleCase(session.split)} Workout',
+                      style: Theme.of(context)
+                          .textTheme
+                          .titleMedium!
+                          .copyWith(color: kAccent),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      exerciseCount == 0
+                          ? 'Not started yet'
+                          : '$exerciseCount exercise(s) · $setCount set(s) logged',
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                  ],
+                ),
+              ),
+              const Icon(Icons.chevron_right, color: kAccent),
+            ],
+          ),
+        ),
       ),
     );
   }
