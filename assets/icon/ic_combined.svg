@@ -1,0 +1,21 @@
+<svg width="1024" height="1024" viewBox="0 0 108 108" xmlns="http://www.w3.org/2000/svg">
+  <!--
+    Combined flat icon for platforms without adaptive-icon masking
+    (iOS, macOS, Windows, Linux desktop, web favicon). iOS applies its own
+    rounded-square mask on top of this full-bleed square, so the barbell
+    uses the same safe-zone-scaled geometry as the Android foreground to
+    stay clear of that corner rounding.
+  -->
+  <rect width="108" height="108" fill="#27241C"/>
+  <line x1="0" y1="34" x2="108" y2="34" stroke="#3D372A" stroke-width="2"/>
+  <line x1="0" y1="50" x2="108" y2="50" stroke="#3D372A" stroke-width="2"/>
+  <line x1="0" y1="78" x2="108" y2="78" stroke="#3D372A" stroke-width="2"/>
+  <line x1="20" y1="0" x2="20" y2="108" stroke="#8A4A40" stroke-width="2"/>
+  <g transform="translate(54,54) rotate(-25) scale(0.7)">
+    <rect x="-26" y="-4" width="52" height="8" rx="2" fill="#E8A020"/>
+    <rect x="-35" y="-9" width="9" height="18" rx="2" fill="#E8A020"/>
+    <rect x="26" y="-9" width="9" height="18" rx="2" fill="#E8A020"/>
+    <rect x="-44" y="-13" width="10" height="26" rx="2.5" fill="#E8A020"/>
+    <rect x="34" y="-13" width="10" height="26" rx="2.5" fill="#E8A020"/>
+  </g>
+</svg>

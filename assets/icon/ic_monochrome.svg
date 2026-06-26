@@ -1,0 +1,15 @@
+<svg width="108" height="108" viewBox="0 0 108 108" xmlns="http://www.w3.org/2000/svg">
+  <!--
+    Android 13+ themed/monochrome icon layer. The OS uses only the alpha
+    channel of this layer and applies its own tint, so color here is
+    irrelevant - black is the convention. Same geometry and safe-zone
+    scale as ic_foreground.svg.
+  -->
+  <g transform="translate(54,54) rotate(-25) scale(0.7)">
+    <rect x="-26" y="-4" width="52" height="8" rx="2" fill="#000000"/>
+    <rect x="-35" y="-9" width="9" height="18" rx="2" fill="#000000"/>
+    <rect x="26" y="-9" width="9" height="18" rx="2" fill="#000000"/>
+    <rect x="-44" y="-13" width="10" height="26" rx="2.5" fill="#000000"/>
+    <rect x="34" y="-13" width="10" height="26" rx="2.5" fill="#000000"/>
+  </g>
+</svg>
