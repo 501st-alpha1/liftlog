@@ -1,13 +1,16 @@
 <svg width="108" height="108" viewBox="0 0 108 108" xmlns="http://www.w3.org/2000/svg">
   <!--
     Android adaptive icon background layer. Full 108x108dp canvas.
-    This layer gets masked by the launcher (circle/squircle/rounded-square),
-    so it's safe to bleed to the edges. Ruled lines are kept loosely
-    centered since their exact position isn't critical if clipped.
+    This layer gets masked by the launcher (circle/squircle/rounded-square).
+    The safe zone (always visible) is the centered 72x72dp region, x/y from
+    18 to 90. All ruled lines are kept inside that zone with a real margin
+    (the margin rule sits at x=28, 10dp in from the safe-zone edge) so they
+    stay visible even under a circular mask, rather than nearly vanishing
+    at the boundary.
   -->
   <rect width="108" height="108" fill="#27241C"/>
-  <line x1="0" y1="34" x2="108" y2="34" stroke="#3D372A" stroke-width="2"/>
-  <line x1="0" y1="50" x2="108" y2="50" stroke="#3D372A" stroke-width="2"/>
-  <line x1="0" y1="78" x2="108" y2="78" stroke="#3D372A" stroke-width="2"/>
-  <line x1="20" y1="0" x2="20" y2="108" stroke="#8A4A40" stroke-width="2"/>
+  <line x1="18" y1="34" x2="90" y2="34" stroke="#3D372A" stroke-width="2"/>
+  <line x1="18" y1="50" x2="90" y2="50" stroke="#3D372A" stroke-width="2"/>
+  <line x1="18" y1="78" x2="90" y2="78" stroke="#3D372A" stroke-width="2"/>
+  <line x1="28" y1="18" x2="28" y2="90" stroke="#8A4A40" stroke-width="2.5"/>
 </svg>

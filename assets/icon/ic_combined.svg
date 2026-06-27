@@ -7,10 +7,10 @@
     stay clear of that corner rounding.
   -->
   <rect width="108" height="108" fill="#27241C"/>
-  <line x1="0" y1="34" x2="108" y2="34" stroke="#3D372A" stroke-width="2"/>
-  <line x1="0" y1="50" x2="108" y2="50" stroke="#3D372A" stroke-width="2"/>
-  <line x1="0" y1="78" x2="108" y2="78" stroke="#3D372A" stroke-width="2"/>
-  <line x1="20" y1="0" x2="20" y2="108" stroke="#8A4A40" stroke-width="2"/>
+  <line x1="18" y1="34" x2="90" y2="34" stroke="#3D372A" stroke-width="2"/>
+  <line x1="18" y1="50" x2="90" y2="50" stroke="#3D372A" stroke-width="2"/>
+  <line x1="18" y1="78" x2="90" y2="78" stroke="#3D372A" stroke-width="2"/>
+  <line x1="28" y1="18" x2="28" y2="90" stroke="#8A4A40" stroke-width="2.5"/>
   <g transform="translate(54,54) rotate(-25) scale(0.7)">
     <rect x="-26" y="-4" width="52" height="8" rx="2" fill="#E8A020"/>
     <rect x="-35" y="-9" width="9" height="18" rx="2" fill="#E8A020"/>
