@@ -629,6 +629,15 @@ class _SetEditorSheetState extends State<_SetEditorSheet> {
   late TextEditingController _restCtrl;
   late TextEditingController _notesCtrl;
 
+  // Focus nodes so we can select-all when a numeric field gains focus,
+  // letting the user just type over the pre-filled value instead of
+  // having to backspace it first.
+  late FocusNode _weightFocus;
+  late FocusNode _repsFocus;
+  late FocusNode _durationFocus;
+  late FocusNode _distanceFocus;
+  late FocusNode _restFocus;
+
   @override
   void initState() {
     super.initState();
@@ -644,6 +653,27 @@ class _SetEditorSheetState extends State<_SetEditorSheet> {
     _restCtrl =
         TextEditingController(text: s.restAfterSeconds?.toString() ?? '');
     _notesCtrl = TextEditingController(text: s.notes ?? '');
+
+    _weightFocus = FocusNode()
+      ..addListener(() => _selectAllOnFocus(_weightFocus, _weightCtrl));
+    _repsFocus = FocusNode()
+      ..addListener(() => _selectAllOnFocus(_repsFocus, _repsCtrl));
+    _durationFocus = FocusNode()
+      ..addListener(() => _selectAllOnFocus(_durationFocus, _durationCtrl));
+    _distanceFocus = FocusNode()
+      ..addListener(() => _selectAllOnFocus(_distanceFocus, _distanceCtrl));
+    _restFocus = FocusNode()
+      ..addListener(() => _selectAllOnFocus(_restFocus, _restCtrl));
+  }
+
+  // Selects the entire current value when the field gains focus, so tapping
+  // into a pre-filled numeric field lets the user immediately type to
+  // overwrite rather than needing to backspace the old value first.
+  void _selectAllOnFocus(FocusNode node, TextEditingController controller) {
+    if (node.hasFocus) {
+      controller.selection =
+          TextSelection(baseOffset: 0, extentOffset: controller.text.length);
+    }
   }
 
   @override
@@ -653,6 +683,11 @@ class _SetEditorSheetState extends State<_SetEditorSheet> {
       _distanceCtrl, _restCtrl, _notesCtrl
     ]) {
       c.dispose();
+    }
+    for (final f in [
+      _weightFocus, _repsFocus, _durationFocus, _distanceFocus, _restFocus
+    ]) {
+      f.dispose();
     }
     super.dispose();
   }
@@ -797,6 +832,7 @@ class _SetEditorSheetState extends State<_SetEditorSheet> {
                 const SizedBox(height: 6),
                 _NumField(
                   controller: _weightCtrl,
+                  focusNode: _weightFocus,
                   hintText: isBodyweight ? '0' : '135',
                   decimal: true,
                   signed: isBodyweight,
@@ -808,7 +844,11 @@ class _SetEditorSheetState extends State<_SetEditorSheet> {
               if (!isCardio) ...[
                 const _FieldLabel('Reps'),
                 const SizedBox(height: 6),
-                _NumField(controller: _repsCtrl, hintText: '5'),
+                _NumField(
+                  controller: _repsCtrl,
+                  focusNode: _repsFocus,
+                  hintText: '5',
+                ),
                 const SizedBox(height: 14),
               ],
 
@@ -816,21 +856,31 @@ class _SetEditorSheetState extends State<_SetEditorSheet> {
               if (isCardio) ...[
                 const _FieldLabel('Duration (seconds)'),
                 const SizedBox(height: 6),
-                _NumField(controller: _durationCtrl, hintText: '600'),
+                _NumField(
+                  controller: _durationCtrl,
+                  focusNode: _durationFocus,
+                  hintText: '600',
+                ),
                 const SizedBox(height: 14),
                 const _FieldLabel('Distance (meters, optional)'),
                 const SizedBox(height: 6),
                 _NumField(
-                    controller: _distanceCtrl,
-                    hintText: '1000',
-                    decimal: true),
+                  controller: _distanceCtrl,
+                  focusNode: _distanceFocus,
+                  hintText: '1000',
+                  decimal: true,
+                ),
                 const SizedBox(height: 14),
               ],
 
               // Rest
               const _FieldLabel('Rest after (seconds)'),
               const SizedBox(height: 6),
-              _NumField(controller: _restCtrl, hintText: '180'),
+              _NumField(
+                controller: _restCtrl,
+                focusNode: _restFocus,
+                hintText: '180',
+              ),
               const SizedBox(height: 14),
 
               // Notes
@@ -871,12 +921,14 @@ class _FieldLabel extends StatelessWidget {
 
 class _NumField extends StatelessWidget {
   final TextEditingController controller;
+  final FocusNode? focusNode;
   final String hintText;
   final bool decimal;
   final bool signed;
 
   const _NumField({
     required this.controller,
+    this.focusNode,
     required this.hintText,
     this.decimal = false,
     this.signed = false,
@@ -886,6 +938,7 @@ class _NumField extends StatelessWidget {
   Widget build(BuildContext context) {
     return TextField(
       controller: controller,
+      focusNode: focusNode,
       keyboardType: TextInputType.numberWithOptions(
         decimal: decimal,
         signed: signed,
