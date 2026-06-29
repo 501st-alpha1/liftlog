@@ -2,16 +2,17 @@
   <!--
     Combined flat icon for platforms without adaptive-icon masking
     (iOS, macOS, Windows, Linux desktop, web favicon). iOS applies its own
-    rounded-square mask on top of this full-bleed square, so the barbell
-    uses the same safe-zone-scaled geometry as the Android foreground to
-    stay clear of that corner rounding.
+    rounded-square mask on top of this full-bleed square. Notebook-page
+    motif inset to match ic_background.svg (rules 24-84, margin rule at
+    x=34); barbell scaled to 0.62 to match ic_foreground.svg, so this icon
+    looks visually consistent with the Android adaptive icon.
   -->
   <rect width="108" height="108" fill="#27241C"/>
-  <line x1="18" y1="34" x2="90" y2="34" stroke="#3D372A" stroke-width="2"/>
-  <line x1="18" y1="50" x2="90" y2="50" stroke="#3D372A" stroke-width="2"/>
-  <line x1="18" y1="78" x2="90" y2="78" stroke="#3D372A" stroke-width="2"/>
-  <line x1="28" y1="18" x2="28" y2="90" stroke="#8A4A40" stroke-width="2.5"/>
-  <g transform="translate(54,54) rotate(-25) scale(0.7)">
+  <line x1="24" y1="34" x2="84" y2="34" stroke="#3D372A" stroke-width="2"/>
+  <line x1="24" y1="50" x2="84" y2="50" stroke="#3D372A" stroke-width="2"/>
+  <line x1="24" y1="78" x2="84" y2="78" stroke="#3D372A" stroke-width="2"/>
+  <line x1="34" y1="18" x2="34" y2="90" stroke="#8A4A40" stroke-width="2.5"/>
+  <g transform="translate(54,54) rotate(-25) scale(0.62)">
     <rect x="-26" y="-4" width="52" height="8" rx="2" fill="#E8A020"/>
     <rect x="-35" y="-9" width="9" height="18" rx="2" fill="#E8A020"/>
     <rect x="26" y="-9" width="9" height="18" rx="2" fill="#E8A020"/>

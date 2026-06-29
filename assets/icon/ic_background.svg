@@ -3,14 +3,14 @@
     Android adaptive icon background layer. Full 108x108dp canvas.
     This layer gets masked by the launcher (circle/squircle/rounded-square).
     The safe zone (always visible) is the centered 72x72dp region, x/y from
-    18 to 90. All ruled lines are kept inside that zone with a real margin
-    (the margin rule sits at x=28, 10dp in from the safe-zone edge) so they
-    stay visible even under a circular mask, rather than nearly vanishing
-    at the boundary.
+    18 to 90. The notebook-page motif (ruled lines + margin rule) is inset
+    further still - horizontal rules run 24 to 84, margin rule sits at
+    x=34 - so the whole page motif has clear breathing room inside the
+    safe zone rather than just barely fitting it.
   -->
   <rect width="108" height="108" fill="#27241C"/>
-  <line x1="18" y1="34" x2="90" y2="34" stroke="#3D372A" stroke-width="2"/>
-  <line x1="18" y1="50" x2="90" y2="50" stroke="#3D372A" stroke-width="2"/>
-  <line x1="18" y1="78" x2="90" y2="78" stroke="#3D372A" stroke-width="2"/>
-  <line x1="28" y1="18" x2="28" y2="90" stroke="#8A4A40" stroke-width="2.5"/>
+  <line x1="24" y1="34" x2="84" y2="34" stroke="#3D372A" stroke-width="2"/>
+  <line x1="24" y1="50" x2="84" y2="50" stroke="#3D372A" stroke-width="2"/>
+  <line x1="24" y1="78" x2="84" y2="78" stroke="#3D372A" stroke-width="2"/>
+  <line x1="34" y1="18" x2="34" y2="90" stroke="#8A4A40" stroke-width="2.5"/>
 </svg>

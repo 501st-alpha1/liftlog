@@ -2,11 +2,13 @@
   <!--
     Android adaptive icon foreground layer.
     Canvas: 108x108dp. Safe zone (always visible across all launcher masks):
-    centered 72x72dp, i.e. x/y from 18 to 90.
-    The barbell is drawn centered at (54,54), rotated -25deg, and sized to
-    stay within the 72x72 safe zone with margin.
+    centered 72x72dp, i.e. x/y from 18 to 90 (radius 36 from center).
+    Barbell is rotated -25deg and scaled to 0.62 (down slightly from an
+    earlier 0.7) so it sits comfortably inside the safe zone with extra
+    margin - max distance from center is ~28.4dp, leaving ~7.6dp of
+    buffer versus the 36dp safe-zone radius.
   -->
-  <g transform="translate(54,54) rotate(-25) scale(0.7)">
+  <g transform="translate(54,54) rotate(-25) scale(0.62)">
     <!-- bar -->
     <rect x="-26" y="-4" width="52" height="8" rx="2" fill="#E8A020"/>
     <!-- collars (inner, smaller) -->
