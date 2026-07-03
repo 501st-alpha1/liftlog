@@ -1,11 +1,8 @@
 <svg width="1024" height="1024" viewBox="0 0 108 108" xmlns="http://www.w3.org/2000/svg">
   <!--
-    Combined flat icon for platforms without adaptive-icon masking
-    (iOS, macOS, Windows, Linux desktop, web favicon). iOS applies its own
-    rounded-square mask on top of this full-bleed square. Notebook-page
-    motif inset to match ic_background.svg (rules 24-84, margin rule at
-    x=34); barbell scaled to 0.62 to match ic_foreground.svg, so this icon
-    looks visually consistent with the Android adaptive icon.
+    Combined flat icon for iOS, macOS, Windows, Linux, web.
+    Background and foreground composited. Matches the Android adaptive
+    icon visually: same notebook motif insets, same barbell scale.
   -->
   <rect width="108" height="108" fill="#27241C"/>
   <line x1="24" y1="34" x2="84" y2="34" stroke="#3D372A" stroke-width="2"/>

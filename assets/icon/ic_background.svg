@@ -1,12 +1,8 @@
 <svg width="108" height="108" viewBox="0 0 108 108" xmlns="http://www.w3.org/2000/svg">
   <!--
     Android adaptive icon background layer. Full 108x108dp canvas.
-    This layer gets masked by the launcher (circle/squircle/rounded-square).
-    The safe zone (always visible) is the centered 72x72dp region, x/y from
-    18 to 90. The notebook-page motif (ruled lines + margin rule) is inset
-    further still - horizontal rules run 24 to 84, margin rule sits at
-    x=34 - so the whole page motif has clear breathing room inside the
-    safe zone rather than just barely fitting it.
+    Notebook page motif inset well inside the 72x72dp safe zone (x/y 18-90):
+    horizontal rules span x=24 to x=84, margin rule sits at x=34.
   -->
   <rect width="108" height="108" fill="#27241C"/>
   <line x1="24" y1="34" x2="84" y2="34" stroke="#3D372A" stroke-width="2"/>
