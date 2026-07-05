@@ -6,7 +6,11 @@ import '../utils/formatters.dart';
 import '../utils/theme.dart';
 
 class ExercisePickerScreen extends StatefulWidget {
-  const ExercisePickerScreen({super.key});
+  /// If provided, pre-selects this category filter and pre-loads history
+  /// sorted by least-recently-done. The user can still change the filter.
+  final MuscleCategory? initialCategory;
+
+  const ExercisePickerScreen({super.key, this.initialCategory});
 
   @override
   State<ExercisePickerScreen> createState() => _ExercisePickerScreenState();
@@ -23,6 +27,7 @@ class _ExercisePickerScreenState extends State<ExercisePickerScreen> {
   @override
   void initState() {
     super.initState();
+    _filterCategory = widget.initialCategory;
     _load();
   }
 
@@ -33,9 +38,20 @@ class _ExercisePickerScreenState extends State<ExercisePickerScreen> {
     });
     try {
       final library = await WorkoutRepository.instance.loadExerciseLibrary();
+      // Eagerly load history for all exercises so we can sort by
+      // last-occurrence date synchronously in _filtered.
+      final histories = await Future.wait(
+        library.exercises.map((e) =>
+            WorkoutRepository.instance.getExerciseHistory(e.id)),
+      );
       if (!mounted) return;
+      final cache = <String, ExerciseHistory>{};
+      for (var i = 0; i < library.exercises.length; i++) {
+        cache[library.exercises[i].id] = histories[i];
+      }
       setState(() {
         _exercises = library.exercises;
+        _historyCache = cache;
         _loading = false;
       });
     } catch (e) {
@@ -58,20 +74,41 @@ class _ExercisePickerScreenState extends State<ExercisePickerScreen> {
   }
 
   List<Exercise> get _filtered {
-    return _exercises.where((e) {
+    final results = _exercises.where((e) {
       final matchesCategory =
           _filterCategory == null || e.category == _filterCategory;
       final matchesSearch = _search.isEmpty ||
           e.name.toLowerCase().contains(_search.toLowerCase());
       return matchesCategory && matchesSearch;
     }).toList();
+
+    // When a category filter is active (either user-selected or from the
+    // session's split), sort by last-occurrence date ascending so the
+    // exercises done least recently (or never) float to the top. This acts
+    // as a soft suggestion: "you haven't done these in a while."
+    // When showing all categories or searching, keep library order.
+    if (_filterCategory != null && _search.isEmpty) {
+      results.sort((a, b) {
+        final aDate = _historyCache[a.id]?.lastOccurrence?.date;
+        final bDate = _historyCache[b.id]?.lastOccurrence?.date;
+        // Never done sorts before any dated occurrence
+        if (aDate == null && bDate == null) return 0;
+        if (aDate == null) return -1;
+        if (bDate == null) return 1;
+        return aDate.compareTo(bDate); // ascending: oldest first
+      });
+    }
+
+    return results;
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Choose Exercise'),
+        title: Text(_filterCategory != null && _search.isEmpty
+            ? '${titleCase(_filterCategory!.name)} exercises'
+            : 'Choose Exercise'),
         actions: [
           IconButton(
             icon: const Icon(Icons.add),

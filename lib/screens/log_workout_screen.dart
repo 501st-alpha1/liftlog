@@ -70,10 +70,38 @@ class _LogWorkoutScreenState extends State<LogWorkoutScreen> {
     });
   }
 
+  /// Maps the free-text session split name to the closest MuscleCategory
+  /// for pre-filtering the exercise picker. Returns null if no match,
+  /// which leaves the picker showing all categories.
+  MuscleCategory? _splitToCategory(String split) {
+    switch (split.toLowerCase().trim()) {
+      case 'push':
+        return MuscleCategory.push;
+      case 'pull':
+        return MuscleCategory.pull;
+      case 'legs':
+      case 'lower':
+        return MuscleCategory.legs;
+      case 'core':
+        return MuscleCategory.core;
+      case 'cardio':
+        return MuscleCategory.cardio;
+      case 'full':
+      case 'full body':
+        return MuscleCategory.full;
+      default:
+        return null; // custom split names show all categories
+    }
+  }
+
   Future<void> _addExercise() async {
     final exercise = await Navigator.push<Exercise>(
       context,
-      MaterialPageRoute(builder: (_) => const ExercisePickerScreen()),
+      MaterialPageRoute(
+        builder: (_) => ExercisePickerScreen(
+          initialCategory: _splitToCategory(_session.split),
+        ),
+      ),
     );
     if (exercise == null || !mounted) return;
     final entry = ExerciseEntry(
