@@ -140,6 +140,7 @@ class _ExercisePickerScreenState extends State<ExercisePickerScreen> {
                                 exercise: ex,
                                 historyFuture: _getHistory(ex.id),
                                 onTap: () => Navigator.pop(context, ex),
+                                onLongPress: () => _editExercise(context, ex),
                               );
                             },
                           ),
@@ -147,6 +148,31 @@ class _ExercisePickerScreenState extends State<ExercisePickerScreen> {
         ],
       ),
     );
+  }
+
+  Future<void> _editExercise(BuildContext context, Exercise exercise) async {
+    final updated = await showModalBottomSheet<Exercise>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: kSurface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (_) => _EditWeightModeSheet(exercise: exercise),
+    );
+    if (updated == null || !mounted) return;
+    final library = await WorkoutRepository.instance.loadExerciseLibrary();
+    final exercises = library.exercises
+        .map((e) => e.id == updated.id ? updated : e)
+        .toList();
+    await WorkoutRepository.instance
+        .saveExerciseLibrary(library.copyWith(exercises: exercises));
+    await _load();
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('${updated.name} updated')),
+      );
+    }
   }
 
   Future<void> _showAddExerciseSheet(BuildContext context) async {
@@ -231,17 +257,20 @@ class _ExerciseRow extends StatelessWidget {
   final Exercise exercise;
   final Future<ExerciseHistory> historyFuture;
   final VoidCallback onTap;
+  final VoidCallback onLongPress;
 
   const _ExerciseRow({
     required this.exercise,
     required this.historyFuture,
     required this.onTap,
+    required this.onLongPress,
   });
 
   @override
   Widget build(BuildContext context) {
     return InkWell(
       onTap: onTap,
+      onLongPress: onLongPress,
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         child: Row(
@@ -294,37 +323,14 @@ class _HistoryLine extends StatelessWidget {
 
     final last = history.lastOccurrence;
     if (last != null && last.sets.isNotEmpty) {
-      parts.add('Last: ${last.sets.first.summary}');
+      parts.add('Last: ${last.sets.first.summaryFor(exercise)}');
     }
 
-    switch (exercise.type) {
-      case ExerciseType.weighted:
-        final pr = history.bestWeightSet;
-        if (pr != null) parts.add('PR: ${formatWeight(pr.weightLbs)}');
-        break;
-      case ExerciseType.bodyweight:
-        final addedPr = history.bestAddedWeightSet;
-        if (addedPr != null && (addedPr.addedWeightLbs ?? 0) != 0) {
-          final w = addedPr.addedWeightLbs!;
-          parts.add(w > 0
-              ? 'PR: +${formatWeight(w)}'
-              : 'Best assist: ${formatWeight(w)}');
-        } else {
-          final repPr = history.bestRepSet;
-          if (repPr != null) parts.add('PR: ${repPr.reps} reps');
-        }
-        break;
-      case ExerciseType.cardio:
-        final best = history.bestDistanceSet;
-        if (best != null) {
-          final km = (best.distanceMeters ?? 0) / 1000;
-          parts.add('Best: ${km.toStringAsFixed(2)} km');
-        }
-        break;
-    }
+    final pr = history.prLabel(exercise);
+    if (pr != null) parts.add(pr);
 
     return Text(
-      parts.join('  ·  '),
+      parts.join('  \u00b7  '),
       style: Theme.of(context).textTheme.bodySmall,
       maxLines: 1,
       overflow: TextOverflow.ellipsis,
@@ -446,6 +452,7 @@ class _AddExerciseSheetState extends State<_AddExerciseSheet> {
 
   MuscleCategory _category = MuscleCategory.push;
   ExerciseType _type = ExerciseType.weighted;
+  WeightMode _weightMode = WeightMode.total;
 
   @override
   void dispose() {
@@ -481,6 +488,7 @@ class _AddExerciseSheetState extends State<_AddExerciseSheet> {
       name: name,
       category: _category,
       type: _type,
+      weightMode: _type == ExerciseType.cardio ? WeightMode.total : _weightMode,
       equipment: equipment.isEmpty ? null : equipment,
       defaultRestSeconds: rest,
     );
@@ -540,7 +548,13 @@ class _AddExerciseSheetState extends State<_AddExerciseSheet> {
               ..._typeOptions.map((opt) => RadioListTile<ExerciseType>(
                     value: opt.$1,
                     groupValue: _type,
-                    onChanged: (v) => setState(() => _type = v!),
+                    onChanged: (v) => setState(() {
+                      _type = v!;
+                      // Cardio doesn't use weight modes; reset to default
+                      if (_type == ExerciseType.cardio) {
+                        _weightMode = WeightMode.total;
+                      }
+                    }),
                     title: Text(opt.$2,
                         style: Theme.of(context).textTheme.bodyMedium),
                     subtitle: Text(opt.$3,
@@ -550,6 +564,25 @@ class _AddExerciseSheetState extends State<_AddExerciseSheet> {
                     dense: true,
                   )),
               const SizedBox(height: 16),
+
+              // Weight mode (not shown for cardio)
+              if (_type != ExerciseType.cardio) ...[
+                const _Label('Weight Mode'),
+                const SizedBox(height: 8),
+                ..._weightModeOptions.map((opt) => RadioListTile<WeightMode>(
+                      value: opt.$1,
+                      groupValue: _weightMode,
+                      onChanged: (v) => setState(() => _weightMode = v!),
+                      title: Text(opt.$2,
+                          style: Theme.of(context).textTheme.bodyMedium),
+                      subtitle: Text(opt.$3,
+                          style: Theme.of(context).textTheme.bodySmall),
+                      activeColor: kAccent,
+                      contentPadding: EdgeInsets.zero,
+                      dense: true,
+                    )),
+                const SizedBox(height: 16),
+              ],
 
               // Equipment
               const _Label('Equipment (optional)'),
@@ -594,7 +627,7 @@ const _typeOptions = [
   (
     ExerciseType.bodyweight,
     'Bodyweight',
-    'Tracks reps, optionally ± weight — push-ups, weighted dips, assisted pull-ups',
+    'Tracks reps, optionally \u00b1 weight — push-ups, weighted dips, assisted pull-ups',
   ),
   (
     ExerciseType.cardio,
@@ -602,6 +635,146 @@ const _typeOptions = [
     'Tracks duration and/or distance — running, rowing',
   ),
 ];
+
+const _weightModeOptions = [
+  (
+    WeightMode.total,
+    'Total weight',
+    'One weight for the whole set — e.g. "185 lbs \u00d7 5"',
+  ),
+  (
+    WeightMode.perSide,
+    'Per side (ea)',
+    'Each limb works independently — e.g. "30 lbs ea \u00d7 14" (dumbbells, split machines)',
+  ),
+  (
+    WeightMode.perPart,
+    'Per part (reps ea)',
+    'One weight, reps counted per side — e.g. "20 lbs \u00d7 14 ea" (compound curl machines)',
+  ),
+  (
+    WeightMode.timedReps,
+    'Timed reps (sec)',
+    'Reps field is seconds — e.g. "0 lbs \u00d7 10 sec" (bar hangs, loaded planks)',
+  ),
+];
+
+// ── Edit Weight Mode Sheet ────────────────────────────────────────────────────
+// Opened by long-pressing an existing exercise. Only exposes weight mode
+// for now since that's the field most likely to need updating after creation.
+// Shows a warning that changing it affects how all historical sets display.
+
+class _EditWeightModeSheet extends StatefulWidget {
+  final Exercise exercise;
+  const _EditWeightModeSheet({required this.exercise});
+
+  @override
+  State<_EditWeightModeSheet> createState() => _EditWeightModeSheetState();
+}
+
+class _EditWeightModeSheetState extends State<_EditWeightModeSheet> {
+  late WeightMode _weightMode;
+
+  @override
+  void initState() {
+    super.initState();
+    _weightMode = widget.exercise.weightMode;
+  }
+
+  bool get _changed => _weightMode != widget.exercise.weightMode;
+
+  void _submit() {
+    Navigator.pop(context, widget.exercise.copyWith(weightMode: _weightMode));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.of(context).viewInsets.bottom,
+      ),
+      child: SingleChildScrollView(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 20, 16, 32),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(widget.exercise.name,
+                  style: Theme.of(context).textTheme.titleLarge),
+              const SizedBox(height: 4),
+              Text('Long press to edit weight mode',
+                  style: Theme.of(context).textTheme.bodySmall),
+              const SizedBox(height: 16),
+
+              // Warning banner (shown when a change is pending)
+              if (_changed)
+                Container(
+                  width: double.infinity,
+                  margin: const EdgeInsets.only(bottom: 14),
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: kDestructive.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: kDestructive.withOpacity(0.4)),
+                  ),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Icon(Icons.warning_amber_rounded,
+                          color: kDestructive, size: 16),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'Changing weight mode affects how all past sets '
+                          'for this exercise are displayed. The numbers '
+                          'themselves are unchanged.',
+                          style: Theme.of(context)
+                              .textTheme
+                              .bodySmall!
+                              .copyWith(color: kDestructive),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+              const _Label('Weight Mode'),
+              const SizedBox(height: 8),
+              ..._weightModeOptions.map((opt) => RadioListTile<WeightMode>(
+                    value: opt.$1,
+                    groupValue: _weightMode,
+                    onChanged: widget.exercise.type == ExerciseType.cardio
+                        ? null
+                        : (v) => setState(() => _weightMode = v!),
+                    title: Text(opt.$2,
+                        style: Theme.of(context).textTheme.bodyMedium),
+                    subtitle: Text(opt.$3,
+                        style: Theme.of(context).textTheme.bodySmall),
+                    activeColor: kAccent,
+                    contentPadding: EdgeInsets.zero,
+                    dense: true,
+                  )),
+              const SizedBox(height: 20),
+
+              ElevatedButton(
+                onPressed: _changed ? _submit : null,
+                child: const Text('Save'),
+              ),
+              const SizedBox(height: 8),
+              Center(
+                child: TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Cancel'),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
 
 class _Label extends StatelessWidget {
   final String text;

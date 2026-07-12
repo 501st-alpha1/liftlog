@@ -11,6 +11,9 @@ Exercise _$ExerciseFromJson(Map<String, dynamic> json) => Exercise(
       name: json['name'] as String,
       category: $enumDecode(_$MuscleCategoryEnumMap, json['category']),
       type: $enumDecode(_$ExerciseTypeEnumMap, json['type']),
+      weightMode:
+          $enumDecodeNullable(_$WeightModeEnumMap, json['weightMode']) ??
+              WeightMode.total,
       equipment: json['equipment'] as String?,
       defaultRestSeconds: (json['defaultRestSeconds'] as num?)?.toInt() ?? 120,
       notes: json['notes'] as String?,
@@ -21,6 +24,7 @@ Map<String, dynamic> _$ExerciseToJson(Exercise instance) => <String, dynamic>{
       'name': instance.name,
       'category': _$MuscleCategoryEnumMap[instance.category]!,
       'type': _$ExerciseTypeEnumMap[instance.type]!,
+      'weightMode': _$WeightModeEnumMap[instance.weightMode]!,
       'equipment': instance.equipment,
       'defaultRestSeconds': instance.defaultRestSeconds,
       'notes': instance.notes,
@@ -40,6 +44,13 @@ const _$ExerciseTypeEnumMap = {
   ExerciseType.weighted: 'weighted',
   ExerciseType.bodyweight: 'bodyweight',
   ExerciseType.cardio: 'cardio',
+};
+
+const _$WeightModeEnumMap = {
+  WeightMode.total: 'total',
+  WeightMode.perSide: 'perSide',
+  WeightMode.perPart: 'perPart',
+  WeightMode.timedReps: 'timedReps',
 };
 
 ExerciseLibrary _$ExerciseLibraryFromJson(Map<String, dynamic> json) =>

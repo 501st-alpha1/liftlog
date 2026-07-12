@@ -459,25 +459,12 @@ class _ExerciseCard extends StatelessWidget {
                   final parts = <String>[];
                   if (last != null) {
                     parts.add('Last ${formatShortDate(last.date)}: '
-                        '${last.sets.map((s) => s.summary).join(', ')}');
+                        '${last.sets.map((s) => s.summaryFor(exercise)).join(', ')}');
                   }
-                  if (exercise?.type == ExerciseType.weighted) {
-                    final pr = hist.bestWeightSet;
-                    if (pr != null) parts.add('PR ${formatWeight(pr.weightLbs)}');
-                  } else if (exercise?.type == ExerciseType.bodyweight) {
-                    final addedPr = hist.bestAddedWeightSet;
-                    if (addedPr != null && (addedPr.addedWeightLbs ?? 0) != 0) {
-                      final w = addedPr.addedWeightLbs!;
-                      parts.add(w > 0
-                          ? 'PR +${formatWeight(w)}'
-                          : 'Best assist ${formatWeight(w)}');
-                    } else {
-                      final repPr = hist.bestRepSet;
-                      if (repPr != null) parts.add('PR ${repPr.reps} reps');
-                    }
-                  }
+                  final pr = exercise != null ? hist.prLabel(exercise!) : null;
+                  if (pr != null) parts.add(pr);
                   return Text(
-                    parts.join('   ·   '),
+                    parts.join('   \u00b7   '),
                     style: Theme.of(context)
                         .textTheme
                         .bodySmall!
@@ -496,6 +483,7 @@ class _ExerciseCard extends StatelessWidget {
                 // Set rows
                 ...entry.sets.asMap().entries.map((e) => _SetRow(
                       set: e.value,
+                      exercise: exercise,
                       onTap: () => onEditSet(e.key),
                     )),
               ],
@@ -594,8 +582,9 @@ class _NotesDialogState extends State<_NotesDialog> {
 
 class _SetRow extends StatelessWidget {
   final WorkoutSet set;
+  final Exercise? exercise;
   final VoidCallback onTap;
-  const _SetRow({required this.set, required this.onTap});
+  const _SetRow({required this.set, required this.exercise, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -614,7 +603,7 @@ class _SetRow extends StatelessWidget {
               ),
             ),
             Expanded(
-              child: Text(set.summary,
+              child: Text(set.summaryFor(exercise),
                   style: Theme.of(context).textTheme.bodyLarge),
             ),
             if (set.notes != null)
@@ -752,6 +741,7 @@ class _SetEditorSheetState extends State<_SetEditorSheet> {
     final type = widget.exercise?.type ?? ExerciseType.weighted;
     final isCardio = type == ExerciseType.cardio;
     final isBodyweight = type == ExerciseType.bodyweight;
+    final isTimedReps = widget.exercise?.weightMode == WeightMode.timedReps;
 
     return Padding(
       padding: EdgeInsets.only(
@@ -814,27 +804,14 @@ class _SetEditorSheetState extends State<_SetEditorSheet> {
                           ),
                           const SizedBox(height: 4),
                           ...lastOcc.sets.map((s) => Text(
-                                'Set ${s.setNumber}: ${s.summary}',
+                                'Set ${s.setNumber}: ${s.summaryFor(widget.exercise)}',
                                 style: Theme.of(context).textTheme.bodySmall,
                               )),
-                          if (type == ExerciseType.weighted &&
-                              h.bestWeightSet != null) ...[
+                          if (widget.exercise != null &&
+                              h.prLabel(widget.exercise!) != null) ...[
                             const SizedBox(height: 6),
                             Text(
-                              'PR: ${h.bestWeightSet!.summary}',
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .bodySmall!
-                                  .copyWith(color: kAccent),
-                            ),
-                          ],
-                          if (type == ExerciseType.bodyweight &&
-                              h.bestAddedWeightSet != null &&
-                              (h.bestAddedWeightSet!.addedWeightLbs ?? 0) !=
-                                  0) ...[
-                            const SizedBox(height: 6),
-                            Text(
-                              'PR: ${h.bestAddedWeightSet!.summary}',
+                              h.prLabel(widget.exercise!)!,
                               style: Theme.of(context)
                                   .textTheme
                                   .bodySmall!
@@ -868,14 +845,14 @@ class _SetEditorSheetState extends State<_SetEditorSheet> {
                 const SizedBox(height: 14),
               ],
 
-              // Reps
+              // Reps (or Seconds for timedReps exercises)
               if (!isCardio) ...[
-                const _FieldLabel('Reps'),
+                _FieldLabel(isTimedReps ? 'Seconds' : 'Reps'),
                 const SizedBox(height: 6),
                 _NumField(
                   controller: _repsCtrl,
                   focusNode: _repsFocus,
-                  hintText: '5',
+                  hintText: isTimedReps ? '30' : '5',
                 ),
                 const SizedBox(height: 14),
               ],

@@ -1,4 +1,5 @@
 import 'workout_set.dart';
+import 'exercise.dart';
 
 /// A single past appearance of an exercise in a session.
 class ExerciseOccurrence {
@@ -16,7 +17,7 @@ class ExerciseOccurrence {
 /// Computed summary for an exercise across all sessions.
 class ExerciseHistory {
   final String exerciseId;
-  final List<ExerciseOccurrence> occurrences; // oldest → newest
+  final List<ExerciseOccurrence> occurrences; // oldest to newest
 
   const ExerciseHistory({
     required this.exerciseId,
@@ -28,7 +29,7 @@ class ExerciseHistory {
   ExerciseOccurrence? get lastOccurrence =>
       occurrences.isEmpty ? null : occurrences.last;
 
-  /// All-time best set by weight (for weighted exercises)
+  /// All-time best set by weight (for weighted exercises).
   WorkoutSet? get bestWeightSet {
     WorkoutSet? best;
     for (final occ in occurrences) {
@@ -43,7 +44,8 @@ class ExerciseHistory {
     return best;
   }
 
-  /// All-time best set by added weight (positive = added, negative = assisted)
+  /// All-time best set by added weight (positive = added, negative = assisted).
+  /// Highest value wins, so unassisted always ranks above assisted.
   WorkoutSet? get bestAddedWeightSet {
     WorkoutSet? best;
     for (final occ in occurrences) {
@@ -58,7 +60,8 @@ class ExerciseHistory {
     return best;
   }
 
-  /// All-time most reps in a single set
+  /// All-time most reps in a single set.
+  /// Also used for WeightMode.timedReps (reps field = seconds).
   WorkoutSet? get bestRepSet {
     WorkoutSet? best;
     for (final occ in occurrences) {
@@ -73,7 +76,7 @@ class ExerciseHistory {
     return best;
   }
 
-  /// All-time longest duration
+  /// All-time longest duration (cardio).
   WorkoutSet? get bestDurationSet {
     WorkoutSet? best;
     for (final occ in occurrences) {
@@ -89,7 +92,7 @@ class ExerciseHistory {
     return best;
   }
 
-  /// All-time longest distance
+  /// All-time longest distance (cardio).
   WorkoutSet? get bestDistanceSet {
     WorkoutSet? best;
     for (final occ in occurrences) {
@@ -103,5 +106,42 @@ class ExerciseHistory {
       }
     }
     return best;
+  }
+
+  /// Returns a short PR label string appropriate for the given exercise type
+  /// and weight mode. Returns null if no PR data is available.
+  String? prLabel(Exercise exercise) {
+    switch (exercise.type) {
+      case ExerciseType.weighted:
+        switch (exercise.weightMode) {
+          case WeightMode.timedReps:
+            final pr = bestRepSet;
+            return pr?.reps != null ? 'PR: ${pr!.reps}sec' : null;
+          default:
+            final pr = bestWeightSet;
+            if (pr == null) return null;
+            return 'PR: ${pr.summaryFor(exercise)}';
+        }
+      case ExerciseType.bodyweight:
+        final addedPr = bestAddedWeightSet;
+        if (addedPr != null && (addedPr.addedWeightLbs ?? 0) != 0) {
+          return 'PR: ${addedPr.summaryFor(exercise)}';
+        }
+        switch (exercise.weightMode) {
+          case WeightMode.timedReps:
+            final pr = bestRepSet;
+            return pr?.reps != null ? 'PR: ${pr!.reps}sec' : null;
+          default:
+            final pr = bestRepSet;
+            return pr?.reps != null ? 'PR: ${pr!.reps} reps' : null;
+        }
+      case ExerciseType.cardio:
+        final best = bestDistanceSet;
+        if (best != null && best.distanceMeters != null) {
+          final km = best.distanceMeters! / 1000;
+          return 'Best: ${km.toStringAsFixed(2)} km';
+        }
+        return null;
+    }
   }
 }

@@ -1,4 +1,5 @@
 import 'package:json_annotation/json_annotation.dart';
+import 'exercise.dart';
 
 part 'workout_set.g.dart';
 
@@ -10,10 +11,10 @@ class WorkoutSet {
   /// Weighted exercises
   final double? weightLbs;
 
-  /// Bodyweight-plus exercises (0 = no added weight)
+  /// Bodyweight-plus exercises (0 = no added weight, negative = assisted)
   final double? addedWeightLbs;
 
-  /// Weighted / bodyweight exercises
+  /// Weighted / bodyweight exercises (or seconds when WeightMode.timedReps)
   final int? reps;
 
   /// Cardio exercises
@@ -70,27 +71,73 @@ class WorkoutSet {
     );
   }
 
-  /// Returns a human-readable summary of this set.
+  // ── Display helpers ───────────────────────────────────────────────────────
+
+  /// Formats the weight value as a string, handling bodyweight/added cases.
+  String _weightLabel(Exercise? exercise) {
+    final w = weightLbs ?? addedWeightLbs;
+    if (w == null) {
+      return exercise?.type == ExerciseType.bodyweight ? 'BW' : '—';
+    }
+    if (exercise?.type == ExerciseType.bodyweight) {
+      if (w > 0) return '+${_fmt(w)} lbs';
+      if (w < 0) return '-${_fmt(w.abs())} lbs (assist)';
+      return 'BW';
+    }
+    return '${_fmt(w)} lbs';
+  }
+
+  String _fmt(double v) =>
+      v % 1 == 0 ? v.toInt().toString() : v.toStringAsFixed(1);
+
+  /// Returns a human-readable summary of this set, using the exercise's
+  /// WeightMode to correctly place "ea" and "sec" labels.
+  ///
+  /// Falls back to [summary] when no exercise is provided.
+  String summaryFor(Exercise? exercise) {
+    // Cardio sets are unaffected by WeightMode
+    if (exercise?.type == ExerciseType.cardio) return summary;
+
+    final mode = exercise?.weightMode ?? WeightMode.total;
+    final w = _weightLabel(exercise);
+    final r = reps;
+
+    switch (mode) {
+      case WeightMode.total:
+        // "185 lbs x 5"
+        if (r != null) return '$w \u00d7 $r';
+        return w;
+
+      case WeightMode.perSide:
+        // "30 lbs ea x 14"
+        if (r != null) return '$w ea \u00d7 $r';
+        return '$w ea';
+
+      case WeightMode.perPart:
+        // "20 lbs x 14 ea"
+        if (r != null) return '$w \u00d7 $r ea';
+        return w;
+
+      case WeightMode.timedReps:
+        // "0 lbs x 10 sec"  (reps field stores seconds)
+        if (r != null) return '$w \u00d7 ${r}sec';
+        return w;
+    }
+  }
+
+  /// Fallback summary with no exercise context (used in places that
+  /// don't have access to the exercise definition).
   String get summary {
     final parts = <String>[];
     if (weightLbs != null && reps != null) {
-      final w = weightLbs! % 1 == 0
-          ? weightLbs!.toInt().toString()
-          : weightLbs!.toStringAsFixed(1);
-      parts.add('${w}lbs × $reps');
+      parts.add('${_fmt(weightLbs!)} lbs \u00d7 $reps');
     } else if (addedWeightLbs != null && reps != null) {
       if (addedWeightLbs! > 0) {
-        final w = addedWeightLbs! % 1 == 0
-            ? addedWeightLbs!.toInt().toString()
-            : addedWeightLbs!.toStringAsFixed(1);
-        parts.add('+${w}lbs × $reps');
+        parts.add('+${_fmt(addedWeightLbs!)} lbs \u00d7 $reps');
       } else if (addedWeightLbs! < 0) {
-        final w = addedWeightLbs!.abs() % 1 == 0
-            ? addedWeightLbs!.abs().toInt().toString()
-            : addedWeightLbs!.abs().toStringAsFixed(1);
-        parts.add('-${w}lbs (assist) × $reps');
+        parts.add('-${_fmt(addedWeightLbs!.abs())} lbs (assist) \u00d7 $reps');
       } else {
-        parts.add('BW × $reps');
+        parts.add('BW \u00d7 $reps');
       }
     } else if (reps != null) {
       parts.add('$reps reps');
@@ -104,6 +151,6 @@ class WorkoutSet {
       final km = distanceMeters! / 1000;
       parts.add('${km.toStringAsFixed(2)} km');
     }
-    return parts.join(' · ');
+    return parts.isEmpty ? '—' : parts.join(' \u00b7 ');
   }
 }
