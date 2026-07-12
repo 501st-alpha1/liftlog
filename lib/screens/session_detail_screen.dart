@@ -306,7 +306,7 @@ class _ExerciseDetailCard extends StatelessWidget {
                       Text(name, style: Theme.of(context).textTheme.titleMedium),
                 ),
                 if (exercise != null)
-                  _TypeBadge(type: exercise!.type),
+                  _TypeBadge(exercise: exercise!),
               ],
             ),
 
@@ -324,16 +324,16 @@ class _ExerciseDetailCard extends StatelessWidget {
             if (entry.sets.isNotEmpty) ...[
               const SizedBox(height: 12),
               // Column headers
-              _SetTableHeader(type: type),
+              _SetTableHeader(exercise: exercise),
               const Divider(height: 12),
               // Set rows
-              ...entry.sets.map((set) => _SetTableRow(set: set, type: type)),
+              ...entry.sets.map((set) => _SetTableRow(set: set, exercise: exercise)),
 
               // Per-exercise summary for weighted/bodyweight
               if (type == ExerciseType.weighted ||
                   type == ExerciseType.bodyweight) ...[
                 const Divider(height: 16),
-                _ExerciseSummaryRow(sets: entry.sets, type: type),
+                _ExerciseSummaryRow(sets: entry.sets, exercise: exercise),
               ],
             ],
           ],
@@ -344,27 +344,37 @@ class _ExerciseDetailCard extends StatelessWidget {
 }
 
 class _SetTableHeader extends StatelessWidget {
-  final ExerciseType type;
-  const _SetTableHeader({required this.type});
+  final Exercise? exercise;
+  const _SetTableHeader({required this.exercise});
 
   @override
   Widget build(BuildContext context) {
+    final type = exercise?.type ?? ExerciseType.weighted;
+    final mode = exercise?.weightMode ?? WeightMode.total;
     final style = Theme.of(context)
         .textTheme
         .bodySmall!
         .copyWith(fontWeight: FontWeight.w600);
+
+    // Weight column label
+    String weightLabel = 'WEIGHT';
+    if (type == ExerciseType.bodyweight) weightLabel = 'ADDED';
+    if (mode == WeightMode.perSide) weightLabel = 'WEIGHT EA';
+
+    // Reps column label
+    String repsLabel = 'REPS';
+    if (mode == WeightMode.perPart) repsLabel = 'REPS EA';
+    if (mode == WeightMode.timedReps) repsLabel = 'SECS';
 
     return Row(
       children: [
         SizedBox(
             width: 28, child: Text('SET', style: style, textAlign: TextAlign.center)),
         const SizedBox(width: 8),
-        if (type == ExerciseType.weighted)
-          Expanded(child: Text('WEIGHT', style: style)),
-        if (type == ExerciseType.bodyweight)
-          Expanded(child: Text('ADDED', style: style)),
         if (type != ExerciseType.cardio)
-          SizedBox(width: 56, child: Text('REPS', style: style, textAlign: TextAlign.right)),
+          Expanded(child: Text(weightLabel, style: style)),
+        if (type != ExerciseType.cardio)
+          SizedBox(width: 56, child: Text(repsLabel, style: style, textAlign: TextAlign.right)),
         if (type == ExerciseType.cardio) ...[
           Expanded(child: Text('DURATION', style: style)),
           SizedBox(
@@ -381,13 +391,35 @@ class _SetTableHeader extends StatelessWidget {
 
 class _SetTableRow extends StatelessWidget {
   final WorkoutSet set;
-  final ExerciseType type;
-  const _SetTableRow({required this.set, required this.type});
+  final Exercise? exercise;
+  const _SetTableRow({required this.set, required this.exercise});
 
   @override
   Widget build(BuildContext context) {
+    final type = exercise?.type ?? ExerciseType.weighted;
+    final mode = exercise?.weightMode ?? WeightMode.total;
     final style = Theme.of(context).textTheme.bodyMedium!;
     final dimStyle = style.copyWith(color: kOnSurfaceDim);
+
+    // Weight cell value
+    String weightValue = '—';
+    if (type == ExerciseType.weighted) {
+      weightValue = set.weightLbs != null ? formatWeight(set.weightLbs) : '—';
+    } else if (type == ExerciseType.bodyweight) {
+      if (set.addedWeightLbs != null && set.addedWeightLbs != 0) {
+        weightValue = set.addedWeightLbs! > 0
+            ? '+${formatWeight(set.addedWeightLbs)}'
+            : '-${formatWeight(set.addedWeightLbs!.abs())} (assist)';
+      } else {
+        weightValue = 'BW';
+      }
+    }
+
+    // Reps cell value
+    String repsValue = set.reps != null ? '${set.reps}' : '—';
+    if (mode == WeightMode.timedReps && set.reps != null) {
+      repsValue = '${set.reps}s';
+    }
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
@@ -402,32 +434,12 @@ class _SetTableRow extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 8),
-          if (type == ExerciseType.weighted)
-            Expanded(
-              child: Text(
-                set.weightLbs != null ? formatWeight(set.weightLbs) : '—',
-                style: style,
-              ),
-            ),
-          if (type == ExerciseType.bodyweight)
-            Expanded(
-              child: Text(
-                set.addedWeightLbs != null && set.addedWeightLbs != 0
-                    ? (set.addedWeightLbs! > 0
-                        ? '+${formatWeight(set.addedWeightLbs)}'
-                        : '-${formatWeight(set.addedWeightLbs!.abs())} (assist)')
-                    : 'BW',
-                style: style,
-              ),
-            ),
+          if (type != ExerciseType.cardio)
+            Expanded(child: Text(weightValue, style: style)),
           if (type != ExerciseType.cardio)
             SizedBox(
               width: 56,
-              child: Text(
-                set.reps != null ? '${set.reps}' : '—',
-                style: style,
-                textAlign: TextAlign.right,
-              ),
+              child: Text(repsValue, style: style, textAlign: TextAlign.right),
             ),
           if (type == ExerciseType.cardio) ...[
             Expanded(
@@ -467,12 +479,14 @@ class _SetTableRow extends StatelessWidget {
 
 class _ExerciseSummaryRow extends StatelessWidget {
   final List<WorkoutSet> sets;
-  final ExerciseType type;
-  const _ExerciseSummaryRow({required this.sets, required this.type});
+  final Exercise? exercise;
+  const _ExerciseSummaryRow({required this.sets, required this.exercise});
 
   @override
   Widget build(BuildContext context) {
-    // Total volume for this exercise
+    final mode = exercise?.weightMode ?? WeightMode.total;
+    final isTimedReps = mode == WeightMode.timedReps;
+
     var volume = 0.0;
     var totalReps = 0;
     for (final s in sets) {
@@ -482,14 +496,17 @@ class _ExerciseSummaryRow extends StatelessWidget {
       totalReps += r;
     }
 
+    final repLabel = isTimedReps ? 'sec' : 'reps';
+
     return Row(
       children: [
         Text(
-          '${sets.length} sets · $totalReps reps',
+          '${sets.length} sets \u00b7 $totalReps $repLabel',
           style: Theme.of(context).textTheme.bodySmall,
         ),
-        if (volume != 0) ...[
-          Text(' · ', style: Theme.of(context).textTheme.bodySmall),
+        // Volume doesn't make sense for timedReps (weight x seconds isn't meaningful)
+        if (volume != 0 && !isTimedReps) ...[
+          Text(' \u00b7 ', style: Theme.of(context).textTheme.bodySmall),
           Text(
             '${volume.round()} lbs volume',
             style: Theme.of(context).textTheme.bodySmall,
@@ -501,14 +518,23 @@ class _ExerciseSummaryRow extends StatelessWidget {
 }
 
 class _TypeBadge extends StatelessWidget {
-  final ExerciseType type;
-  const _TypeBadge({required this.type});
+  final Exercise exercise;
+  const _TypeBadge({required this.exercise});
 
-  String get _label => switch (type) {
-        ExerciseType.weighted => 'weighted',
-        ExerciseType.bodyweight => 'BW',
-        ExerciseType.cardio => 'cardio',
-      };
+  String get _label {
+    final base = switch (exercise.type) {
+      ExerciseType.weighted => 'weighted',
+      ExerciseType.bodyweight => 'BW',
+      ExerciseType.cardio => 'cardio',
+    };
+    final suffix = switch (exercise.weightMode) {
+      WeightMode.total => '',
+      WeightMode.perSide => ' · ea',
+      WeightMode.perPart => ' · reps ea',
+      WeightMode.timedReps => ' · timed',
+    };
+    return '$base$suffix';
+  }
 
   @override
   Widget build(BuildContext context) {
