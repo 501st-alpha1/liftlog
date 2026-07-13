@@ -639,18 +639,18 @@ class _SetEditorSheet extends StatefulWidget {
 }
 
 class _SetEditorSheetState extends State<_SetEditorSheet> {
-  late TextEditingController _weightCtrl;
-  late TextEditingController _repsCtrl;
+  // Weight and reps are stored as nullable doubles/ints directly in state
+  // rather than text controllers, since the stepper mutates them numerically.
+  // Manual keyboard override writes back into these values on commit.
+  double? _weight;
+  int? _reps;
+
+  // Cardio fields still use controllers since they're text-entry-only.
   late TextEditingController _durationCtrl;
   late TextEditingController _distanceCtrl;
   late TextEditingController _restCtrl;
   late TextEditingController _notesCtrl;
 
-  // Focus nodes so we can select-all when a numeric field gains focus,
-  // letting the user just type over the pre-filled value instead of
-  // having to backspace it first.
-  late FocusNode _weightFocus;
-  late FocusNode _repsFocus;
   late FocusNode _durationFocus;
   late FocusNode _distanceFocus;
   late FocusNode _restFocus;
@@ -659,10 +659,9 @@ class _SetEditorSheetState extends State<_SetEditorSheet> {
   void initState() {
     super.initState();
     final s = widget.set;
-    _weightCtrl = TextEditingController(
-        text: s.weightLbs?.toString() ?? s.addedWeightLbs?.toString() ?? '');
-    _repsCtrl =
-        TextEditingController(text: s.reps?.toString() ?? '');
+    _weight = s.weightLbs ?? s.addedWeightLbs;
+    _reps = s.reps;
+
     _durationCtrl =
         TextEditingController(text: s.durationSeconds?.toString() ?? '');
     _distanceCtrl =
@@ -671,10 +670,6 @@ class _SetEditorSheetState extends State<_SetEditorSheet> {
         TextEditingController(text: s.restAfterSeconds?.toString() ?? '');
     _notesCtrl = TextEditingController(text: s.notes ?? '');
 
-    _weightFocus = FocusNode()
-      ..addListener(() => _selectAllOnFocus(_weightFocus, _weightCtrl));
-    _repsFocus = FocusNode()
-      ..addListener(() => _selectAllOnFocus(_repsFocus, _repsCtrl));
     _durationFocus = FocusNode()
       ..addListener(() => _selectAllOnFocus(_durationFocus, _durationCtrl));
     _distanceFocus = FocusNode()
@@ -683,9 +678,6 @@ class _SetEditorSheetState extends State<_SetEditorSheet> {
       ..addListener(() => _selectAllOnFocus(_restFocus, _restCtrl));
   }
 
-  // Selects the entire current value when the field gains focus, so tapping
-  // into a pre-filled numeric field lets the user immediately type to
-  // overwrite rather than needing to backspace the old value first.
   void _selectAllOnFocus(FocusNode node, TextEditingController controller) {
     if (node.hasFocus) {
       controller.selection =
@@ -695,24 +687,85 @@ class _SetEditorSheetState extends State<_SetEditorSheet> {
 
   @override
   void dispose() {
-    for (final c in [
-      _weightCtrl, _repsCtrl, _durationCtrl,
-      _distanceCtrl, _restCtrl, _notesCtrl
-    ]) {
+    for (final c in [_durationCtrl, _distanceCtrl, _restCtrl, _notesCtrl]) {
       c.dispose();
     }
-    for (final f in [
-      _weightFocus, _repsFocus, _durationFocus, _distanceFocus, _restFocus
-    ]) {
+    for (final f in [_durationFocus, _distanceFocus, _restFocus]) {
       f.dispose();
     }
     super.dispose();
   }
 
+  // Increment amounts
+  double get _weightStep => 5.0;
+  int get _repStep =>
+      widget.exercise?.weightMode == WeightMode.timedReps ? 5 : 1;
+
+  bool get _isCardio =>
+      widget.exercise?.type == ExerciseType.cardio;
+  bool get _isBodyweight =>
+      widget.exercise?.type == ExerciseType.bodyweight;
+  bool get _isTimedReps =>
+      widget.exercise?.weightMode == WeightMode.timedReps;
+
+  String get _weightLabel {
+    if (_isBodyweight) return 'Added weight (lbs)';
+    return 'Weight (lbs)';
+  }
+
+  String get _repsLabel => _isTimedReps ? 'Seconds' : 'Reps';
+
+  String _formatWeight(double? w) {
+    if (w == null) return '—';
+    if (_isBodyweight) {
+      if (w == 0) return 'BW';
+      final sign = w > 0 ? '+' : '';
+      final abs = w.abs();
+      final str = abs % 1 == 0 ? abs.toInt().toString() : abs.toStringAsFixed(1);
+      return '$sign${w < 0 ? '-' : ''}${str} lbs';
+    }
+    final str = w % 1 == 0 ? w.toInt().toString() : w.toStringAsFixed(1);
+    return '$str lbs';
+  }
+
+  String _formatReps(int? r) {
+    if (r == null) return '—';
+    return _isTimedReps ? '${r}s' : '$r';
+  }
+
+  // Pre-fills weight and reps from a historical set (Copy button).
+  void _copyFrom(WorkoutSet s) {
+    setState(() {
+      _weight = s.weightLbs ?? s.addedWeightLbs;
+      _reps = s.reps;
+    });
+  }
+
+  // Opens a keyboard dialog to manually override a numeric value.
+  Future<void> _manualEditWeight() async {
+    final result = await _showManualEntryDialog(
+      context: context,
+      label: _weightLabel,
+      initial: _weight?.toString() ?? '',
+      decimal: true,
+      signed: _isBodyweight,
+    );
+    if (result != null) setState(() => _weight = double.tryParse(result));
+  }
+
+  Future<void> _manualEditReps() async {
+    final result = await _showManualEntryDialog(
+      context: context,
+      label: _repsLabel,
+      initial: _reps?.toString() ?? '',
+      decimal: false,
+      signed: false,
+    );
+    if (result != null) setState(() => _reps = int.tryParse(result));
+  }
+
   WorkoutSet _buildSet() {
     final type = widget.exercise?.type ?? ExerciseType.weighted;
-    final weight = double.tryParse(_weightCtrl.text);
-    final reps = int.tryParse(_repsCtrl.text);
     final duration = int.tryParse(_durationCtrl.text);
     final distance = double.tryParse(_distanceCtrl.text);
     final rest = int.tryParse(_restCtrl.text);
@@ -721,9 +774,9 @@ class _SetEditorSheetState extends State<_SetEditorSheet> {
 
     return WorkoutSet(
       setNumber: widget.set.setNumber,
-      weightLbs: type == ExerciseType.weighted ? weight : null,
-      addedWeightLbs: type == ExerciseType.bodyweight ? weight : null,
-      reps: (type != ExerciseType.cardio) ? reps : null,
+      weightLbs: type == ExerciseType.weighted ? _weight : null,
+      addedWeightLbs: type == ExerciseType.bodyweight ? _weight : null,
+      reps: (type != ExerciseType.cardio) ? _reps : null,
       durationSeconds: duration,
       distanceMeters: distance,
       restAfterSeconds: rest,
@@ -738,11 +791,6 @@ class _SetEditorSheetState extends State<_SetEditorSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final type = widget.exercise?.type ?? ExerciseType.weighted;
-    final isCardio = type == ExerciseType.cardio;
-    final isBodyweight = type == ExerciseType.bodyweight;
-    final isTimedReps = widget.exercise?.weightMode == WeightMode.timedReps;
-
     return Padding(
       padding: EdgeInsets.only(
         bottom: MediaQuery.of(context).viewInsets.bottom,
@@ -773,92 +821,86 @@ class _SetEditorSheetState extends State<_SetEditorSheet> {
                     ),
                 ],
               ),
+              const SizedBox(height: 12),
 
-              // History hint
+              // ── History reference with Copy buttons ─────────────────────
               FutureBuilder<ExerciseHistory>(
                 future: widget.historyFuture,
                 builder: (ctx, snap) {
                   if (!snap.hasData || snap.data!.isEmpty) {
-                    return const SizedBox(height: 12);
+                    return const SizedBox.shrink();
                   }
                   final h = snap.data!;
                   final lastOcc = h.lastOccurrence;
-                  if (lastOcc == null) return const SizedBox(height: 12);
-                  return Padding(
-                    padding: const EdgeInsets.only(bottom: 12, top: 4),
-                    child: Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(
-                        color: kAccentDim.withOpacity(0.15),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(
-                            color: kAccentDim.withOpacity(0.3)),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Last (${formatShortDate(lastOcc.date)})',
-                            style: Theme.of(context).textTheme.labelLarge,
-                          ),
-                          const SizedBox(height: 4),
-                          ...lastOcc.sets.map((s) => Text(
-                                'Set ${s.setNumber}: ${s.summaryFor(widget.exercise)}',
-                                style: Theme.of(context).textTheme.bodySmall,
-                              )),
-                          if (widget.exercise != null &&
-                              h.prLabel(widget.exercise!) != null) ...[
-                            const SizedBox(height: 6),
-                            Text(
-                              h.prLabel(widget.exercise!)!,
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .bodySmall!
-                                  .copyWith(color: kAccent),
-                            ),
-                          ],
-                        ],
-                      ),
-                    ),
+                  if (lastOcc == null) return const SizedBox.shrink();
+
+                  // Find the PR occurrence (the one containing bestWeightSet
+                  // or bestAddedWeightSet). If the last session IS the PR
+                  // session, show only one section to avoid duplication.
+                  final bestSet = h.bestWeightSet ?? h.bestAddedWeightSet;
+                  ExerciseOccurrence? bestOcc;
+                  if (bestSet != null) {
+                    for (final occ in h.occurrences) {
+                      for (final s in occ.sets) {
+                        if (s.setNumber == bestSet.setNumber &&
+                            s.weightLbs == bestSet.weightLbs &&
+                            s.addedWeightLbs == bestSet.addedWeightLbs &&
+                            s.reps == bestSet.reps) {
+                          bestOcc = occ;
+                        }
+                      }
+                    }
+                  }
+
+                  final showBest =
+                      bestOcc != null && bestOcc.date != lastOcc.date;
+
+                  return _HistoryReference(
+                    lastOcc: lastOcc,
+                    bestOcc: showBest ? bestOcc : null,
+                    exercise: widget.exercise,
+                    currentSetNumber: widget.set.setNumber,
+                    onCopy: _copyFrom,
                   );
                 },
               ),
 
-              const SizedBox(height: 8),
+              const SizedBox(height: 16),
 
-              // Weight field (weighted: plain weight; bodyweight: ± added/assist)
-              if (!isCardio) ...[
-                _FieldLabel(
-                  isBodyweight
-                      ? 'Added Weight (lbs) — 0 = bodyweight, negative = assisted'
-                      : 'Weight (lbs)',
+              // ── Weight stepper ──────────────────────────────────────────
+              if (!_isCardio) ...[
+                _FieldLabel(_weightLabel),
+                const SizedBox(height: 8),
+                _StepperRow(
+                  value: _formatWeight(_weight),
+                  onDecrement: () => setState(() =>
+                      _weight = (_weight ?? 0) - _weightStep),
+                  onIncrement: () => setState(() =>
+                      _weight = (_weight ?? 0) + _weightStep),
+                  onTapValue: _manualEditWeight,
                 ),
-                const SizedBox(height: 6),
-                _NumField(
-                  controller: _weightCtrl,
-                  focusNode: _weightFocus,
-                  hintText: isBodyweight ? '0' : '135',
-                  decimal: true,
-                  signed: isBodyweight,
-                ),
-                const SizedBox(height: 14),
+                const SizedBox(height: 16),
               ],
 
-              // Reps (or Seconds for timedReps exercises)
-              if (!isCardio) ...[
-                _FieldLabel(isTimedReps ? 'Seconds' : 'Reps'),
-                const SizedBox(height: 6),
-                _NumField(
-                  controller: _repsCtrl,
-                  focusNode: _repsFocus,
-                  hintText: isTimedReps ? '30' : '5',
+              // ── Reps stepper ────────────────────────────────────────────
+              if (!_isCardio) ...[
+                _FieldLabel(_repsLabel),
+                const SizedBox(height: 8),
+                _StepperRow(
+                  value: _formatReps(_reps),
+                  onDecrement: () => setState(() {
+                    final cur = _reps ?? 0;
+                    if (cur - _repStep >= 0) _reps = cur - _repStep;
+                  }),
+                  onIncrement: () => setState(() =>
+                      _reps = (_reps ?? 0) + _repStep),
+                  onTapValue: _manualEditReps,
                 ),
-                const SizedBox(height: 14),
+                const SizedBox(height: 16),
               ],
 
-              // Duration (cardio + optional for others)
-              if (isCardio) ...[
+              // ── Cardio fields ───────────────────────────────────────────
+              if (_isCardio) ...[
                 const _FieldLabel('Duration (seconds)'),
                 const SizedBox(height: 6),
                 _NumField(
@@ -878,7 +920,7 @@ class _SetEditorSheetState extends State<_SetEditorSheet> {
                 const SizedBox(height: 14),
               ],
 
-              // Rest
+              // ── Rest ────────────────────────────────────────────────────
               const _FieldLabel('Rest after (seconds)'),
               const SizedBox(height: 6),
               _NumField(
@@ -888,7 +930,7 @@ class _SetEditorSheetState extends State<_SetEditorSheet> {
               ),
               const SizedBox(height: 14),
 
-              // Notes
+              // ── Notes ───────────────────────────────────────────────────
               const _FieldLabel('Notes (optional)'),
               const SizedBox(height: 6),
               TextField(
@@ -902,14 +944,343 @@ class _SetEditorSheetState extends State<_SetEditorSheet> {
 
               ElevatedButton(
                 onPressed: _save,
-                child: Text(
-                  widget.onDelete == null ? 'Log Set' : 'Save',
-                ),
+                child: Text(widget.onDelete == null ? 'Log Set' : 'Save'),
               ),
             ],
           ),
         ),
       ),
+    );
+  }
+}
+
+// ── History Reference ─────────────────────────────────────────────────────────
+// Shows last session and optionally all-time best session, each with
+// per-set Copy buttons. Handles set-index mismatches gracefully.
+
+class _HistoryReference extends StatelessWidget {
+  final ExerciseOccurrence lastOcc;
+  final ExerciseOccurrence? bestOcc;
+  final Exercise? exercise;
+  final int currentSetNumber;
+  final ValueChanged<WorkoutSet> onCopy;
+
+  const _HistoryReference({
+    required this.lastOcc,
+    required this.bestOcc,
+    required this.exercise,
+    required this.currentSetNumber,
+    required this.onCopy,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _OccurrenceBlock(
+          label: 'Last (${formatShortDate(lastOcc.date)})',
+          occ: lastOcc,
+          exercise: exercise,
+          currentSetNumber: currentSetNumber,
+          onCopy: onCopy,
+          isPR: false,
+        ),
+        if (bestOcc != null) ...[
+          const SizedBox(height: 8),
+          _OccurrenceBlock(
+            label: 'Best (${formatShortDate(bestOcc!.date)})',
+            occ: bestOcc!,
+            exercise: exercise,
+            currentSetNumber: currentSetNumber,
+            onCopy: onCopy,
+            isPR: true,
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+class _OccurrenceBlock extends StatelessWidget {
+  final String label;
+  final ExerciseOccurrence occ;
+  final Exercise? exercise;
+  final int currentSetNumber;
+  final ValueChanged<WorkoutSet> onCopy;
+  final bool isPR;
+
+  const _OccurrenceBlock({
+    required this.label,
+    required this.occ,
+    required this.exercise,
+    required this.currentSetNumber,
+    required this.onCopy,
+    required this.isPR,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    // Show the matching set (same index) prominently; show others dimmed.
+    // If the current set has no counterpart (more sets than last time),
+    // fall back to showing the last set from that occurrence.
+    final matchIdx = currentSetNumber <= occ.sets.length
+        ? currentSetNumber - 1
+        : occ.sets.length - 1;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: isPR
+            ? kAccent.withOpacity(0.07)
+            : kAccentDim.withOpacity(0.12),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: isPR
+              ? kAccent.withOpacity(0.3)
+              : kAccentDim.withOpacity(0.25),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: Theme.of(context).textTheme.labelLarge!.copyWith(
+                  color: isPR ? kAccent : kOnSurfaceDim,
+                ),
+          ),
+          const SizedBox(height: 6),
+          ...occ.sets.asMap().entries.map((e) {
+            final isMatch = e.key == matchIdx;
+            final s = e.value;
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 4),
+              child: Row(
+                children: [
+                  SizedBox(
+                    width: 44,
+                    child: Text(
+                      'Set ${s.setNumber}',
+                      style: Theme.of(context).textTheme.bodySmall!.copyWith(
+                            color: isMatch ? kOnSurface : kOnSurfaceDim,
+                            fontWeight: isMatch
+                                ? FontWeight.w600
+                                : FontWeight.normal,
+                          ),
+                    ),
+                  ),
+                  Expanded(
+                    child: Text(
+                      s.summaryFor(exercise),
+                      style: Theme.of(context).textTheme.bodySmall!.copyWith(
+                            color: isMatch ? kOnSurface : kOnSurfaceDim,
+                          ),
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: () => onCopy(s),
+                    style: TextButton.styleFrom(
+                      foregroundColor:
+                          isPR ? kAccent : kOnSurface,
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 4),
+                      minimumSize: Size.zero,
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      textStyle: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    child: const Text('Copy'),
+                  ),
+                ],
+              ),
+            );
+          }),
+        ],
+      ),
+    );
+  }
+}
+
+// ── Stepper Row ───────────────────────────────────────────────────────────────
+// [ − ]  [ value ]  [ + ]
+// Tapping the value label opens a keyboard dialog for manual override.
+
+class _StepperRow extends StatelessWidget {
+  final String value;
+  final VoidCallback onDecrement;
+  final VoidCallback onIncrement;
+  final VoidCallback onTapValue;
+
+  const _StepperRow({
+    required this.value,
+    required this.onDecrement,
+    required this.onIncrement,
+    required this.onTapValue,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        _StepButton(
+          icon: Icons.remove,
+          onTap: onDecrement,
+        ),
+        Expanded(
+          child: GestureDetector(
+            onTap: onTapValue,
+            child: Container(
+              margin: const EdgeInsets.symmetric(horizontal: 8),
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              decoration: BoxDecoration(
+                color: kSurfaceVariant,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Text(
+                value,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontSize: 26,
+                  fontWeight: FontWeight.w800,
+                  color: kOnBackground,
+                ),
+              ),
+            ),
+          ),
+        ),
+        _StepButton(
+          icon: Icons.add,
+          onTap: onIncrement,
+        ),
+      ],
+    );
+  }
+}
+
+class _StepButton extends StatelessWidget {
+  final IconData icon;
+  final VoidCallback onTap;
+
+  const _StepButton({required this.icon, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: kSurfaceVariant,
+      borderRadius: BorderRadius.circular(10),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(10),
+        child: SizedBox(
+          width: 52,
+          height: 52,
+          child: Icon(icon, color: kOnSurface, size: 22),
+        ),
+      ),
+    );
+  }
+}
+
+// ── Manual entry dialog ───────────────────────────────────────────────────────
+// Opens when user taps the value label in the stepper row.
+
+Future<String?> _showManualEntryDialog({
+  required BuildContext context,
+  required String label,
+  required String initial,
+  required bool decimal,
+  required bool signed,
+}) {
+  return showDialog<String>(
+    context: context,
+    builder: (ctx) => _ManualEntryDialog(
+      label: label,
+      initial: initial,
+      decimal: decimal,
+      signed: signed,
+    ),
+  );
+}
+
+class _ManualEntryDialog extends StatefulWidget {
+  final String label;
+  final String initial;
+  final bool decimal;
+  final bool signed;
+
+  const _ManualEntryDialog({
+    required this.label,
+    required this.initial,
+    required this.decimal,
+    required this.signed,
+  });
+
+  @override
+  State<_ManualEntryDialog> createState() => _ManualEntryDialogState();
+}
+
+class _ManualEntryDialogState extends State<_ManualEntryDialog> {
+  late final TextEditingController _ctrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = TextEditingController(text: widget.initial);
+    // Select all so typing immediately replaces the value
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _ctrl.selection =
+          TextSelection(baseOffset: 0, extentOffset: _ctrl.text.length);
+    });
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      backgroundColor: kSurface,
+      title: Text(widget.label,
+          style: Theme.of(context).textTheme.titleMedium),
+      content: TextField(
+        controller: _ctrl,
+        autofocus: true,
+        keyboardType: TextInputType.numberWithOptions(
+          decimal: widget.decimal,
+          signed: widget.signed,
+        ),
+        inputFormatters: [
+          FilteringTextInputFormatter.allow(
+            widget.signed
+                ? (widget.decimal ? RegExp(r'[\d.\-]') : RegExp(r'[\d\-]'))
+                : (widget.decimal ? RegExp(r'[\d.]') : RegExp(r'[\d]')),
+          ),
+        ],
+        style: const TextStyle(
+          fontSize: 28,
+          fontWeight: FontWeight.w800,
+          color: kOnBackground,
+        ),
+        decoration: const InputDecoration(border: InputBorder.none),
+        onSubmitted: (v) => Navigator.pop(context, v.trim()),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context, null),
+          child: const Text('Cancel'),
+        ),
+        ElevatedButton(
+          onPressed: () => Navigator.pop(context, _ctrl.text.trim()),
+          child: const Text('OK'),
+        ),
+      ],
     );
   }
 }
