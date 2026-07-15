@@ -24,10 +24,19 @@ class _LogWorkoutScreenState extends State<LogWorkoutScreen> {
   Map<String, ExerciseHistory> _historyCache = {};
   bool _saving = false;
 
-  // Rest timer state
+  // Rest timer state. Rather than decrementing a counter on each tick
+  // (which drifts and stops when backgrounded), we store the absolute
+  // end time and derive the remaining seconds from DateTime.now() on
+  // each UI refresh tick. This stays accurate across background pauses.
   Timer? _restTimer;
-  int _restRemaining = 0;
+  DateTime? _restEndTime;
   bool _restActive = false;
+
+  int get _restRemaining {
+    if (_restEndTime == null) return 0;
+    final diff = _restEndTime!.difference(DateTime.now()).inSeconds;
+    return diff < 0 ? 0 : diff;
+  }
 
   @override
   void initState() {
@@ -202,28 +211,33 @@ class _LogWorkoutScreenState extends State<LogWorkoutScreen> {
   void _startRestTimer(int seconds) {
     _restTimer?.cancel();
     setState(() {
-      _restRemaining = seconds;
+      _restEndTime = DateTime.now().add(Duration(seconds: seconds));
       _restActive = true;
     });
+    // Tick every second just to refresh the UI. The displayed value is
+    // always derived from the wall clock, so drift and background pauses
+    // are automatically corrected the moment the app comes back to foreground.
     _restTimer = Timer.periodic(const Duration(seconds: 1), (t) {
       if (!mounted) {
         t.cancel();
         return;
       }
-      setState(() {
-        _restRemaining--;
-        if (_restRemaining <= 0) {
-          _restActive = false;
-          t.cancel();
-          HapticFeedback.heavyImpact();
-        }
-      });
+      if (_restRemaining <= 0) {
+        t.cancel();
+        setState(() => _restActive = false);
+        HapticFeedback.heavyImpact();
+      } else {
+        setState(() {}); // redraw with updated _restRemaining getter value
+      }
     });
   }
 
   void _dismissRestTimer() {
     _restTimer?.cancel();
-    setState(() => _restActive = false);
+    setState(() {
+      _restActive = false;
+      _restEndTime = null;
+    });
   }
 
   Future<void> _finishWorkout() async {
