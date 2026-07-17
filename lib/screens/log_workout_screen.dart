@@ -1093,18 +1093,25 @@ class _OccurrenceBlock extends StatelessWidget {
                           ),
                     ),
                   ),
-                  TextButton(
+                  OutlinedButton(
                     onPressed: () => onCopy(s),
-                    style: TextButton.styleFrom(
-                      foregroundColor:
-                          isPR ? kAccent : kOnSurface,
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: isPR ? kAccent : kOnSurface,
+                      side: BorderSide(
+                        color: isPR
+                            ? kAccent.withOpacity(0.6)
+                            : kOnSurfaceDim.withOpacity(0.4),
+                      ),
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 10, vertical: 4),
+                          horizontal: 14, vertical: 6),
                       minimumSize: Size.zero,
                       tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                       textStyle: const TextStyle(
-                        fontSize: 12,
+                        fontSize: 13,
                         fontWeight: FontWeight.w600,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(7),
                       ),
                     ),
                     child: const Text('Copy'),
