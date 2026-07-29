@@ -447,17 +447,16 @@ class _AddExerciseSheet extends StatefulWidget {
 
 class _AddExerciseSheetState extends State<_AddExerciseSheet> {
   final _nameCtrl = TextEditingController();
-  final _equipmentCtrl = TextEditingController();
   final _restCtrl = TextEditingController(text: '120');
 
   MuscleCategory _category = MuscleCategory.push;
   ExerciseType _type = ExerciseType.weighted;
   WeightMode _weightMode = WeightMode.total;
+  String? _equipment;
 
   @override
   void dispose() {
     _nameCtrl.dispose();
-    _equipmentCtrl.dispose();
     _restCtrl.dispose();
     super.dispose();
   }
@@ -481,7 +480,6 @@ class _AddExerciseSheetState extends State<_AddExerciseSheet> {
     }
     final id = _generateId(name);
     final rest = int.tryParse(_restCtrl.text.trim()) ?? 120;
-    final equipment = _equipmentCtrl.text.trim();
 
     final exercise = Exercise(
       id: id,
@@ -489,7 +487,7 @@ class _AddExerciseSheetState extends State<_AddExerciseSheet> {
       category: _category,
       type: _type,
       weightMode: _type == ExerciseType.cardio ? WeightMode.total : _weightMode,
-      equipment: equipment.isEmpty ? null : equipment,
+      equipment: _equipment,
       defaultRestSeconds: rest,
     );
     Navigator.pop(context, exercise);
@@ -585,14 +583,20 @@ class _AddExerciseSheetState extends State<_AddExerciseSheet> {
               ],
 
               // Equipment
-              const _Label('Equipment (optional)'),
-              const SizedBox(height: 6),
-              TextField(
-                controller: _equipmentCtrl,
-                textCapitalization: TextCapitalization.none,
-                decoration: const InputDecoration(
-                  hintText: 'e.g. barbell, dumbbell, cable…',
-                ),
+              const _Label('Equipment'),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: _equipmentOptions.map((eq) {
+                  final selected = _equipment == eq;
+                  return ChoiceChip(
+                    label: Text(eq == 'none' ? 'None' : titleCase(eq)),
+                    selected: selected,
+                    onSelected: (_) => setState(() =>
+                        _equipment = selected ? null : eq),
+                  );
+                }).toList(),
               ),
               const SizedBox(height: 16),
 
@@ -617,6 +621,8 @@ class _AddExerciseSheetState extends State<_AddExerciseSheet> {
     );
   }
 }
+
+const _equipmentOptions = ['barbell', 'dumbbell', 'machine', 'none'];
 
 const _typeOptions = [
   (
