@@ -656,8 +656,11 @@ class _SetEditorSheetState extends State<_SetEditorSheet> {
   // Weight and reps are stored as nullable doubles/ints directly in state
   // rather than text controllers, since the stepper mutates them numerically.
   // Manual keyboard override writes back into these values on commit.
-  double? _weight;
+  double? _weight;   // total weight (canonical); also used as per-side for barbell
+  double? _perSide;  // per-side added weight for barbell exercises (nullable)
   int? _reps;
+
+  static const double _kBarWeight = 45.0;
 
   // Cardio fields still use controllers since they're text-entry-only.
   late TextEditingController _durationCtrl;
@@ -673,7 +676,19 @@ class _SetEditorSheetState extends State<_SetEditorSheet> {
   void initState() {
     super.initState();
     final s = widget.set;
-    _weight = s.weightLbs ?? s.addedWeightLbs;
+    if (_isBarbell) {
+      // For barbell exercises, initialise from addedPerSideLbs if available,
+      // otherwise derive per-side from total (assuming 45 lb bar).
+      if (s.addedPerSideLbs != null) {
+        _perSide = s.addedPerSideLbs;
+        _weight = s.weightLbs ?? (_kBarWeight + 2 * s.addedPerSideLbs!);
+      } else if (s.weightLbs != null) {
+        _weight = s.weightLbs;
+        _perSide = (s.weightLbs! - _kBarWeight) / 2;
+      }
+    } else {
+      _weight = s.weightLbs ?? s.addedWeightLbs;
+    }
     _reps = s.reps;
 
     _durationCtrl =
@@ -721,6 +736,9 @@ class _SetEditorSheetState extends State<_SetEditorSheet> {
       widget.exercise?.type == ExerciseType.bodyweight;
   bool get _isTimedReps =>
       widget.exercise?.weightMode == WeightMode.timedReps;
+  bool get _isBarbell =>
+      widget.exercise?.equipment == 'barbell' &&
+      widget.exercise?.type == ExerciseType.weighted;
 
   String get _weightLabel {
     if (_isBodyweight) return 'Added weight (lbs)';
@@ -742,20 +760,68 @@ class _SetEditorSheetState extends State<_SetEditorSheet> {
     return '$str lbs';
   }
 
+  String _formatPerSide(double? p) {
+    if (p == null) return '—';
+    final str = p.abs() % 1 == 0
+        ? p.abs().toInt().toString()
+        : p.abs().toStringAsFixed(1);
+    final sign = p >= 0 ? '+' : '-';
+    return '${sign}${str}e';
+  }
+
+  String _formatTotal(double? t) {
+    if (t == null) return '—';
+    final str = t % 1 == 0 ? t.toInt().toString() : t.toStringAsFixed(1);
+    return '$str lbs';
+  }
+
   String _formatReps(int? r) {
     if (r == null) return '—';
     return _isTimedReps ? '${r}s' : '$r';
   }
 
+  // Recomputes total weight from bar + 2 × perSide.
+  void _updateTotalFromPerSide() {
+    if (_perSide != null) {
+      _weight = _kBarWeight + 2 * _perSide!;
+    }
+  }
+
   // Pre-fills weight and reps from a historical set (Copy button).
   void _copyFrom(WorkoutSet s) {
     setState(() {
-      _weight = s.weightLbs ?? s.addedWeightLbs;
+      if (_isBarbell) {
+        if (s.addedPerSideLbs != null) {
+          _perSide = s.addedPerSideLbs;
+          _weight = s.weightLbs ?? (_kBarWeight + 2 * s.addedPerSideLbs!);
+        } else if (s.weightLbs != null) {
+          _weight = s.weightLbs;
+          _perSide = (s.weightLbs! - _kBarWeight) / 2;
+        }
+      } else {
+        _weight = s.weightLbs ?? s.addedWeightLbs;
+      }
       _reps = s.reps;
     });
   }
 
   // Opens a keyboard dialog to manually override a numeric value.
+  Future<void> _manualEditPerSide() async {
+    final result = await _showManualEntryDialog(
+      context: context,
+      label: 'Per side (lbs)',
+      initial: _perSide?.toString() ?? '',
+      decimal: true,
+      signed: true,
+    );
+    if (result != null) {
+      setState(() {
+        _perSide = double.tryParse(result);
+        _updateTotalFromPerSide();
+      });
+    }
+  }
+
   Future<void> _manualEditWeight() async {
     final result = await _showManualEntryDialog(
       context: context,
@@ -789,6 +855,7 @@ class _SetEditorSheetState extends State<_SetEditorSheet> {
     return WorkoutSet(
       setNumber: widget.set.setNumber,
       weightLbs: type == ExerciseType.weighted ? _weight : null,
+      addedPerSideLbs: _isBarbell ? _perSide : null,
       addedWeightLbs: type == ExerciseType.bodyweight ? _weight : null,
       reps: (type != ExerciseType.cardio) ? _reps : null,
       durationSeconds: duration,
@@ -881,18 +948,64 @@ class _SetEditorSheetState extends State<_SetEditorSheet> {
 
               const SizedBox(height: 16),
 
-              // ── Weight stepper ──────────────────────────────────────────
+              // ── Weight input ────────────────────────────────────────────
               if (!_isCardio) ...[
-                _FieldLabel(_weightLabel),
-                const SizedBox(height: 8),
-                _StepperRow(
-                  value: _formatWeight(_weight),
-                  onDecrement: () => setState(() =>
-                      _weight = (_weight ?? 0) - _weightStep),
-                  onIncrement: () => setState(() =>
-                      _weight = (_weight ?? 0) + _weightStep),
-                  onTapValue: _manualEditWeight,
-                ),
+                if (_isBarbell) ...[
+                  // Barbell layout: fixed bar row + per-side stepper + derived total
+                  Row(
+                    children: [
+                      const _FieldLabel('Bar'),
+                      const Spacer(),
+                      Text(
+                        '${_kBarWeight.toInt()} lbs',
+                        style: Theme.of(context).textTheme.bodySmall!.copyWith(
+                              color: kOnSurfaceDim,
+                            ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  const _FieldLabel('Per side'),
+                  const SizedBox(height: 8),
+                  _StepperRow(
+                    value: _formatPerSide(_perSide),
+                    onDecrement: () => setState(() {
+                      _perSide = (_perSide ?? 0) - _weightStep;
+                      _updateTotalFromPerSide();
+                    }),
+                    onIncrement: () => setState(() {
+                      _perSide = (_perSide ?? 0) + _weightStep;
+                      _updateTotalFromPerSide();
+                    }),
+                    onTapValue: _manualEditPerSide,
+                  ),
+                  const SizedBox(height: 10),
+                  Row(
+                    children: [
+                      const _FieldLabel('Total'),
+                      const Spacer(),
+                      Text(
+                        _formatTotal(_weight),
+                        style: Theme.of(context).textTheme.titleMedium!.copyWith(
+                              color: kOnSurface,
+                              fontWeight: FontWeight.w700,
+                            ),
+                      ),
+                    ],
+                  ),
+                ] else ...[
+                  // Non-barbell: single weight stepper
+                  _FieldLabel(_weightLabel),
+                  const SizedBox(height: 8),
+                  _StepperRow(
+                    value: _formatWeight(_weight),
+                    onDecrement: () => setState(() =>
+                        _weight = (_weight ?? 0) - _weightStep),
+                    onIncrement: () => setState(() =>
+                        _weight = (_weight ?? 0) + _weightStep),
+                    onTapValue: _manualEditWeight,
+                  ),
+                ],
                 const SizedBox(height: 16),
               ],
 

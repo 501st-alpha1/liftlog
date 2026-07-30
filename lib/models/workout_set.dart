@@ -11,6 +11,11 @@ class WorkoutSet {
   /// Weighted exercises
   final double? weightLbs;
 
+  /// Barbell exercises: weight added per side (supplementary to weightLbs).
+  /// Total = barWeight + 2 × addedPerSideLbs. weightLbs remains canonical
+  /// for all PR/volume math; this field is display/input context only.
+  final double? addedPerSideLbs;
+
   /// Bodyweight-plus exercises (0 = no added weight, negative = assisted)
   final double? addedWeightLbs;
 
@@ -29,6 +34,7 @@ class WorkoutSet {
   const WorkoutSet({
     required this.setNumber,
     this.weightLbs,
+    this.addedPerSideLbs,
     this.addedWeightLbs,
     this.reps,
     this.durationSeconds,
@@ -45,6 +51,7 @@ class WorkoutSet {
   WorkoutSet copyWith({
     int? setNumber,
     double? weightLbs,
+    double? addedPerSideLbs,
     double? addedWeightLbs,
     int? reps,
     int? durationSeconds,
@@ -53,12 +60,16 @@ class WorkoutSet {
     String? notes,
     bool clearNotes = false,
     bool clearWeightLbs = false,
+    bool clearAddedPerSideLbs = false,
     bool clearAddedWeightLbs = false,
     bool clearDistanceMeters = false,
   }) {
     return WorkoutSet(
       setNumber: setNumber ?? this.setNumber,
       weightLbs: clearWeightLbs ? null : (weightLbs ?? this.weightLbs),
+      addedPerSideLbs: clearAddedPerSideLbs
+          ? null
+          : (addedPerSideLbs ?? this.addedPerSideLbs),
       addedWeightLbs: clearAddedWeightLbs
           ? null
           : (addedWeightLbs ?? this.addedWeightLbs),
@@ -92,11 +103,18 @@ class WorkoutSet {
 
   /// Returns a human-readable summary of this set, using the exercise's
   /// WeightMode to correctly place "ea" and "sec" labels.
+  /// For barbell sets (addedPerSideLbs != null), shows the full breakdown:
+  /// "[45] +15e [=75] × 5"
   ///
   /// Falls back to [summary] when no exercise is provided.
   String summaryFor(Exercise? exercise) {
     // Cardio sets are unaffected by WeightMode
     if (exercise?.type == ExerciseType.cardio) return summary;
+
+    // Barbell breakdown takes priority over WeightMode formatting
+    if (addedPerSideLbs != null && weightLbs != null) {
+      return _barbellSummary(reps);
+    }
 
     final mode = exercise?.weightMode ?? WeightMode.total;
     final w = _weightLabel(exercise);
@@ -125,11 +143,29 @@ class WorkoutSet {
     }
   }
 
+  /// Barbell breakdown string: "[45] +15e [=75] × 5"
+  /// Bar weight is derived as: total - 2 × perSide, rounded to nearest 0.5.
+  String _barbellSummary(int? r) {
+    final perSide = addedPerSideLbs!;
+    final total = weightLbs!;
+    final bar = total - 2 * perSide;
+    final perSideStr = _fmt(perSide.abs());
+    final totalStr = _fmt(total);
+    final barStr = _fmt(bar);
+    final sign = perSide >= 0 ? '+' : '-';
+    final core = '[$barStr] ${sign}${perSideStr}e [=${totalStr}]';
+    if (r != null) return '$core \u00d7 $r';
+    return core;
+  }
+
   /// Fallback summary with no exercise context (used in places that
   /// don't have access to the exercise definition).
   String get summary {
     final parts = <String>[];
-    if (weightLbs != null && reps != null) {
+    if (weightLbs != null && addedPerSideLbs != null) {
+      parts.add(_barbellSummary(reps));
+      return parts.first;
+    } else if (weightLbs != null && reps != null) {
       parts.add('${_fmt(weightLbs!)} lbs \u00d7 $reps');
     } else if (addedWeightLbs != null && reps != null) {
       if (addedWeightLbs! > 0) {
