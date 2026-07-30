@@ -29,6 +29,9 @@ class WorkoutSet {
   /// Actual rest taken after this set, in seconds
   final int? restAfterSeconds;
 
+  /// Timestamp when this set was completed/logged (ISO 8601 datetime).
+  final String? completedAt;
+
   final String? notes;
 
   const WorkoutSet({
@@ -40,6 +43,7 @@ class WorkoutSet {
     this.durationSeconds,
     this.distanceMeters,
     this.restAfterSeconds,
+    this.completedAt,
     this.notes,
   });
 
@@ -57,12 +61,14 @@ class WorkoutSet {
     int? durationSeconds,
     double? distanceMeters,
     int? restAfterSeconds,
+    String? completedAt,
     String? notes,
     bool clearNotes = false,
     bool clearWeightLbs = false,
     bool clearAddedPerSideLbs = false,
     bool clearAddedWeightLbs = false,
     bool clearDistanceMeters = false,
+    bool clearCompletedAt = false,
   }) {
     return WorkoutSet(
       setNumber: setNumber ?? this.setNumber,
@@ -78,6 +84,7 @@ class WorkoutSet {
       distanceMeters:
           clearDistanceMeters ? null : (distanceMeters ?? this.distanceMeters),
       restAfterSeconds: restAfterSeconds ?? this.restAfterSeconds,
+      completedAt: clearCompletedAt ? null : (completedAt ?? this.completedAt),
       notes: clearNotes ? null : (notes ?? this.notes),
     );
   }

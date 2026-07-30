@@ -169,7 +169,11 @@ class _LogWorkoutScreenState extends State<LogWorkoutScreen> {
         onSave: (updated) async {
           final sets = [...entry.sets];
           if (isNew) {
-            sets.add(updated);
+            sets.add(
+              updated.copyWith(
+                completedAt: nowIso(),
+              ),
+            );
           } else {
             sets[setIndex!] = updated;
           }
@@ -861,6 +865,7 @@ class _SetEditorSheetState extends State<_SetEditorSheet> {
       durationSeconds: duration,
       distanceMeters: distance,
       restAfterSeconds: rest,
+      completedAt: widget.set.completedAt,
       notes: notes,
     );
   }
