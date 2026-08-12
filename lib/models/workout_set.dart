@@ -26,7 +26,8 @@ class WorkoutSet {
   final int? durationSeconds;
   final double? distanceMeters;
 
-  /// Actual rest taken after this set, in seconds
+  /// Planned rest duration after this set, in seconds.
+  /// Used to start the rest timer.
   final int? restAfterSeconds;
 
   /// Timestamp when this set was completed/logged (ISO 8601 datetime).
@@ -195,5 +196,28 @@ class WorkoutSet {
       parts.add('${km.toStringAsFixed(2)} km');
     }
     return parts.isEmpty ? '—' : parts.join(' \u00b7 ');
+  }
+
+  /// Returns the actual rest taken before this set, based on the completion
+  /// timestamps of this set and the previous set.
+  ///
+  /// Returns null when either timestamp is missing or invalid.
+  int? actualRestSeconds(WorkoutSet? previousSet) {
+    if (previousSet?.completedAt == null || completedAt == null) {
+      return null;
+    }
+
+    final previous = DateTime.tryParse(previousSet!.completedAt!);
+    final current = DateTime.tryParse(completedAt!);
+
+    if (previous == null || current == null) {
+      return null;
+    }
+
+    final seconds = current.difference(previous).inSeconds;
+
+    // A negative value should not occur during normal use, but avoid displaying
+    // nonsense if timestamps are malformed or manually altered.
+    return seconds >= 0 ? seconds : null;
   }
 }

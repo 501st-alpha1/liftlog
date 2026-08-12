@@ -327,7 +327,19 @@ class _ExerciseDetailCard extends StatelessWidget {
               _SetTableHeader(exercise: exercise),
               const Divider(height: 12),
               // Set rows
-              ...entry.sets.map((set) => _SetTableRow(set: set, exercise: exercise)),
+              ...entry.sets.asMap().entries.map(
+                (setEntry) {
+                  final index = setEntry.key;
+                  final set = setEntry.value;
+                  final previousSet = index > 0 ? entry.sets[index - 1] : null;
+
+                  return _SetTableRow(
+                    set: set,
+                    previousSet: previousSet,
+                    exercise: exercise,
+                  );
+                },
+              ),
 
               // Per-exercise summary for weighted/bodyweight
               if (type == ExerciseType.weighted ||
@@ -391,8 +403,14 @@ class _SetTableHeader extends StatelessWidget {
 
 class _SetTableRow extends StatelessWidget {
   final WorkoutSet set;
+  final WorkoutSet? previousSet;
   final Exercise? exercise;
-  const _SetTableRow({required this.set, required this.exercise});
+
+  const _SetTableRow({
+      required this.set,
+      required this.previousSet,
+      required this.exercise
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -400,6 +418,7 @@ class _SetTableRow extends StatelessWidget {
     final mode = exercise?.weightMode ?? WeightMode.total;
     final style = Theme.of(context).textTheme.bodyMedium!;
     final dimStyle = style.copyWith(color: kOnSurfaceDim);
+    final actualRest = set.actualRestSeconds(previousSet);
 
     // Weight cell value
     String weightValue = '—';
@@ -464,9 +483,7 @@ class _SetTableRow extends StatelessWidget {
           SizedBox(
             width: 52,
             child: Text(
-              set.restAfterSeconds != null
-                  ? formatDuration(set.restAfterSeconds!)
-                  : '—',
+              actualRest != null ? formatDuration(actualRest) : '—',
               style: dimStyle,
               textAlign: TextAlign.right,
             ),

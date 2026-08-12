@@ -1053,7 +1053,7 @@ class _SetEditorSheetState extends State<_SetEditorSheet> {
               ],
 
               // ── Rest ────────────────────────────────────────────────────
-              const _FieldLabel('Rest after (seconds)'),
+              const _FieldLabel('Rest timer (seconds)'),
               const SizedBox(height: 6),
               _NumField(
                 controller: _restCtrl,
