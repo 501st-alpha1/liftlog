@@ -16,6 +16,9 @@ class WorkoutSet {
   /// for all PR/volume math; this field is display/input context only.
   final double? addedPerSideLbs;
 
+  /// Override the per-side logging for this set, just log total weight.
+  final bool useTotalWeight;
+
   /// Bodyweight-plus exercises (0 = no added weight, negative = assisted)
   final double? addedWeightLbs;
 
@@ -46,6 +49,7 @@ class WorkoutSet {
     this.restAfterSeconds,
     this.completedAt,
     this.notes,
+    this.useTotalWeight = false,
   });
 
   factory WorkoutSet.fromJson(Map<String, dynamic> json) =>
@@ -64,6 +68,7 @@ class WorkoutSet {
     int? restAfterSeconds,
     String? completedAt,
     String? notes,
+    bool? useTotalWeight,
     bool clearNotes = false,
     bool clearWeightLbs = false,
     bool clearAddedPerSideLbs = false,
@@ -87,6 +92,7 @@ class WorkoutSet {
       restAfterSeconds: restAfterSeconds ?? this.restAfterSeconds,
       completedAt: clearCompletedAt ? null : (completedAt ?? this.completedAt),
       notes: clearNotes ? null : (notes ?? this.notes),
+      useTotalWeight: useTotalWeight ?? this.useTotalWeight,
     );
   }
 

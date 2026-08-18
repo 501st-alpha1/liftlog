@@ -17,6 +17,7 @@ WorkoutSet _$WorkoutSetFromJson(Map<String, dynamic> json) => WorkoutSet(
       restAfterSeconds: (json['restAfterSeconds'] as num?)?.toInt(),
       completedAt: json['completedAt'] as String?,
       notes: json['notes'] as String?,
+      useTotalWeight: json['useTotalWeight'] as bool? ?? false,
     );
 
 Map<String, dynamic> _$WorkoutSetToJson(WorkoutSet instance) =>
@@ -24,6 +25,7 @@ Map<String, dynamic> _$WorkoutSetToJson(WorkoutSet instance) =>
       'setNumber': instance.setNumber,
       'weightLbs': instance.weightLbs,
       'addedPerSideLbs': instance.addedPerSideLbs,
+      'useTotalWeight': instance.useTotalWeight,
       'addedWeightLbs': instance.addedWeightLbs,
       'reps': instance.reps,
       'durationSeconds': instance.durationSeconds,

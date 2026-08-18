@@ -663,6 +663,7 @@ class _SetEditorSheetState extends State<_SetEditorSheet> {
   double? _weight;   // total weight (canonical); also used as per-side for barbell
   double? _perSide;  // per-side added weight for barbell exercises (nullable)
   int? _reps;
+  bool _useTotalWeight = false;
 
   static const double _kBarWeight = 45.0;
 
@@ -683,7 +684,11 @@ class _SetEditorSheetState extends State<_SetEditorSheet> {
     if (_isBarbell) {
       // For barbell exercises, initialise from addedPerSideLbs if available,
       // otherwise derive per-side from total (assuming 45 lb bar).
-      if (s.addedPerSideLbs != null) {
+      _useTotalWeight = s.useTotalWeight;
+
+      if (_useTotalWeight) {
+        _weight = s.weightLbs;
+      } else if (s.addedPerSideLbs != null) {
         _perSide = s.addedPerSideLbs;
         _weight = s.weightLbs ?? (_kBarWeight + 2 * s.addedPerSideLbs!);
       } else if (s.weightLbs != null) {
@@ -791,6 +796,22 @@ class _SetEditorSheetState extends State<_SetEditorSheet> {
     }
   }
 
+  void _selectPerSide() {
+    setState(() {
+      _useTotalWeight = false;
+
+      if (_weight != null) {
+        _perSide = (_weight! - _kBarWeight) / 2;
+      }
+    });
+  }
+
+  void _selectTotal() {
+    setState(() {
+      _useTotalWeight = true;
+    });
+  }
+
   // Pre-fills weight and reps from a historical set (Copy button).
   void _copyFrom(WorkoutSet s) {
     setState(() {
@@ -859,7 +880,8 @@ class _SetEditorSheetState extends State<_SetEditorSheet> {
     return WorkoutSet(
       setNumber: widget.set.setNumber,
       weightLbs: type == ExerciseType.weighted ? _weight : null,
-      addedPerSideLbs: _isBarbell ? _perSide : null,
+      addedPerSideLbs: _isBarbell && !_useTotalWeight ? _perSide : null,
+      useTotalWeight: _isBarbell && _useTotalWeight,
       addedWeightLbs: type == ExerciseType.bodyweight ? _weight : null,
       reps: (type != ExerciseType.cardio) ? _reps : null,
       durationSeconds: duration,
@@ -959,45 +981,60 @@ class _SetEditorSheetState extends State<_SetEditorSheet> {
                   // Barbell layout: fixed bar row + per-side stepper + derived total
                   Row(
                     children: [
-                      const _FieldLabel('Bar'),
-                      const Spacer(),
-                      Text(
-                        '${_kBarWeight.toInt()} lbs',
-                        style: Theme.of(context).textTheme.bodySmall!.copyWith(
-                              color: kOnSurfaceDim,
-                            ),
+                      _ModeLabel(
+                        label: 'Per side',
+                        active: !_useTotalWeight,
+                        onTap: _selectPerSide,
+                      ),
+                      const SizedBox(width: 16),
+                      _ModeLabel(
+                        label: 'Total',
+                        active: _useTotalWeight,
+                        onTap: _selectTotal,
                       ),
                     ],
                   ),
                   const SizedBox(height: 8),
-                  const _FieldLabel('Per side'),
-                  const SizedBox(height: 8),
+
+                  if (_useTotalWeight)
                   _StepperRow(
-                    value: _formatPerSide(_perSide),
+                    value: _formatTotal(_weight),
                     onDecrement: () => setState(() {
-                      _perSide = (_perSide ?? 0) - _weightStep;
-                      _updateTotalFromPerSide();
+                        _weight = (_weight ?? 0) - _weightStep;
                     }),
                     onIncrement: () => setState(() {
-                      _perSide = (_perSide ?? 0) + _weightStep;
-                      _updateTotalFromPerSide();
+                        _weight = (_weight ?? 0) + _weightStep;
                     }),
-                    onTapValue: _manualEditPerSide,
-                  ),
-                  const SizedBox(height: 10),
-                  Row(
-                    children: [
-                      const _FieldLabel('Total'),
-                      const Spacer(),
-                      Text(
-                        _formatTotal(_weight),
-                        style: Theme.of(context).textTheme.titleMedium!.copyWith(
-                              color: kOnSurface,
-                              fontWeight: FontWeight.w700,
-                            ),
-                      ),
-                    ],
-                  ),
+                    onTapValue: _manualEditWeight,
+                  )
+                  else ...[
+                    _StepperRow(
+                      value: _formatPerSide(_perSide),
+                      onDecrement: () => setState(() {
+                          _perSide = (_perSide ?? 0) - _weightStep;
+                          _updateTotalFromPerSide();
+                      }),
+                      onIncrement: () => setState(() {
+                          _perSide = (_perSide ?? 0) + _weightStep;
+                          _updateTotalFromPerSide();
+                      }),
+                      onTapValue: _manualEditPerSide,
+                    ),
+                    const SizedBox(height: 10),
+                    Row(
+                      children: [
+                        const _FieldLabel('Total'),
+                        const Spacer(),
+                        Text(
+                          _formatTotal(_weight),
+                          style: Theme.of(context).textTheme.titleMedium!.copyWith(
+                            color: kOnSurfaceDim,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                 ] else ...[
                   // Non-barbell: single weight stepper
                   _FieldLabel(_weightLabel),
@@ -1296,6 +1333,32 @@ class _StepperRow extends StatelessWidget {
           onTap: onIncrement,
         ),
       ],
+    );
+  }
+}
+
+class _ModeLabel extends StatelessWidget {
+  final String label;
+  final bool active;
+  final VoidCallback onTap;
+
+  const _ModeLabel({
+    required this.label,
+    required this.active,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Text(
+        label,
+        style: Theme.of(context).textTheme.labelLarge!.copyWith(
+          color: active ? kOnSurface : kOnSurfaceDim,
+          fontWeight: active ? FontWeight.w700 : FontWeight.normal,
+        ),
+      ),
     );
   }
 }
