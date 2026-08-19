@@ -991,21 +991,20 @@ class _SetEditorSheetState extends State<_SetEditorSheet> {
                   ),
                   const SizedBox(height: 8),
 
+                  // Per-side section.
                   GestureDetector(
                     onTap: _useTotalWeight ? _selectPerSide : null,
                     child: Text(
                       'Per side',
                       style: Theme.of(context).textTheme.labelLarge!.copyWith(
                         color: _useTotalWeight ? kOnSurfaceDim : kOnSurface,
-                        fontWeight: FontWeight.w700,
+                        fontWeight: _useTotalWeight ? FontWeight.normal : FontWeight.w700,
                       ),
                     ),
                   ),
 
-                  // Per-side mode
                   if (!_useTotalWeight) ...[
                     const SizedBox(height: 6),
-
                     _StepperRow(
                       value: _formatWeight(_perSide),
                       onDecrement: () => setState(() {
@@ -1018,15 +1017,25 @@ class _SetEditorSheetState extends State<_SetEditorSheet> {
                       }),
                       onTapValue: _manualEditPerSide,
                     ),
-
-                    const SizedBox(height: 10),
                   ],
 
-                  // Total — doubles as the mode switch
+                  const SizedBox(height: 12),
+
+                  // Total section.
                   GestureDetector(
                     onTap: _useTotalWeight ? null : _selectTotal,
-                    child: _useTotalWeight
-                    ? _StepperRow(
+                    child: Text(
+                      'Total',
+                      style: Theme.of(context).textTheme.labelLarge!.copyWith(
+                        color: _useTotalWeight ? kOnSurface : kOnSurfaceDim,
+                        fontWeight: _useTotalWeight ? FontWeight.w700 : FontWeight.normal,
+                      ),
+                    ),
+                  ),
+
+                  if (_useTotalWeight) ...[
+                    const SizedBox(height: 6),
+                    _StepperRow(
                       value: _formatWeight(_weight),
                       onDecrement: () => setState(() {
                           _weight = (_weight ?? 0) - _weightStep;
@@ -1035,21 +1044,17 @@ class _SetEditorSheetState extends State<_SetEditorSheet> {
                           _weight = (_weight ?? 0) + _weightStep;
                       }),
                       onTapValue: _manualEditWeight,
-                    )
-                    : Row(
-                      children: [
-                        const _FieldLabel('Total'),
-                        const Spacer(),
-                        Text(
-                          _formatWeight(_weight),
-                          style: Theme.of(context).textTheme.titleMedium!.copyWith(
-                            color: kOnSurfaceDim,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ],
                     ),
-                  ),
+                  ] else ...[
+                    const SizedBox(height: 6),
+                    Text(
+                      _formatWeight(_weight),
+                      style: Theme.of(context).textTheme.titleMedium!.copyWith(
+                        color: kOnSurfaceDim,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
                 ] else ...[
                   // Non-barbell: single weight stepper
                   _FieldLabel(_weightLabel),
