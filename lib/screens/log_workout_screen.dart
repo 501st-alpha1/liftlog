@@ -1022,18 +1022,17 @@ class _SetEditorSheetState extends State<_SetEditorSheet> {
                   const SizedBox(height: 12),
 
                   // Total section.
-                  GestureDetector(
-                    onTap: _useTotalWeight ? null : _selectTotal,
-                    child: Text(
-                      'Total',
-                      style: Theme.of(context).textTheme.labelLarge!.copyWith(
-                        color: _useTotalWeight ? kOnSurface : kOnSurfaceDim,
-                        fontWeight: _useTotalWeight ? FontWeight.w700 : FontWeight.normal,
+                  if (_useTotalWeight) ...[
+                    GestureDetector(
+                      onTap: _selectPerSide,
+                      child: Text(
+                        'Total',
+                        style: Theme.of(context).textTheme.labelLarge!.copyWith(
+                          color: kOnSurface,
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
                     ),
-                  ),
-
-                  if (_useTotalWeight) ...[
                     const SizedBox(height: 6),
                     _StepperRow(
                       value: _formatWeight(_weight),
@@ -1046,12 +1045,26 @@ class _SetEditorSheetState extends State<_SetEditorSheet> {
                       onTapValue: _manualEditWeight,
                     ),
                   ] else ...[
-                    const SizedBox(height: 6),
-                    Text(
-                      _formatWeight(_weight),
-                      style: Theme.of(context).textTheme.titleMedium!.copyWith(
-                        color: kOnSurfaceDim,
-                        fontWeight: FontWeight.w700,
+                    GestureDetector(
+                      onTap: _selectTotal,
+                      child: Row(
+                        children: [
+                          Text(
+                            'Total',
+                            style: Theme.of(context).textTheme.labelLarge!.copyWith(
+                              color: kOnSurfaceDim,
+                              fontWeight: FontWeight.normal,
+                            ),
+                          ),
+                          const Spacer(),
+                          Text(
+                            _formatWeight(_weight),
+                            style: Theme.of(context).textTheme.titleMedium!.copyWith(
+                              color: kOnSurfaceDim,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ],
